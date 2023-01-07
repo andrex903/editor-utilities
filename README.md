@@ -1,15 +1,10 @@
 # About Editor Utilities
 
-Use Unity’s Sprite Editor to create and edit Sprite assets. Sprite Editor provides user extensibility to add custom behaviour for editing various Sprite related data.
+A group of usefull editor scritp for Unity.
 
 # Installing Editor Utilities
 
 To install this package, follow the instructions in the [Package Manager documentation](https://docs.unity3d.com/Packages/com.unity.package-manager-ui@latest/index.html).
-
-# Using Sprite Editor
-
-All the scripts can be found under tools menu.
-
 
 # Technical details
 ## Requirements
