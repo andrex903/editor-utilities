@@ -19,7 +19,7 @@ The following table indicates the folder structure of the package:
 
 |Location|Description|
 |---|---|
-|`<Editor>`|Root folder containing the source for the editor script.|
+|`<Editor>`|Root folder containing the source for the editor scripts.|
 |`<Tests>`|Root folder containing the source for the tests.|
 
 ## Document revision history
