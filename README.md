@@ -1,6 +1,6 @@
 # About Editor Utilities
 
-A group of usefull editor scritps for Unity.
+A group of useful editor scritps for Unity.
 
 # Installing Editor Utilities
 
