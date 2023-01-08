@@ -41,7 +41,7 @@ namespace RedeevEditor.Utilities
         [MenuItem("Tools/Utilities/Turbo Rename")]
         public static void ShowWindow()
         {
-            var window = GetWindow(typeof(TurboRename));
+            var window = GetWindow<TurboRename>("Turbo Rename");
             window.minSize = new Vector2(512, 128);
         }
 
