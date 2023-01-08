@@ -10,10 +10,10 @@ namespace RedeevEditor.Utilities
 		[SerializeField] private GameObject prefab;
 		[SerializeField] private int value = 100;
 
-		[MenuItem("Tools/Utilities/Replace with Prefab")]
+		[MenuItem("Tools/Utilities/Prefab Replacer")]
 		private static void CreateReplaceWithPrefab()
 		{
-			GetWindow<ReplaceWithPrefab>();
+			GetWindow<ReplaceWithPrefab>("Prefab Replacer");
 		}
 
 		private void OnGUI()
