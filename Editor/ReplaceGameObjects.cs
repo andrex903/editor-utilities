@@ -10,10 +10,10 @@ namespace RedeevEditor.Utilities
 		public GameObject newObject;
 		public GameObject[] OldObjects;
 
-		[MenuItem("Tools/Utilities/Replace GameObjects")]
+		[MenuItem("Tools/Utilities/GameObjects Replacer")]
 		static void CreateWizard()
 		{
-			DisplayWizard("Replace GameObjects", typeof(ReplaceGameObjects), "Replace");
+			DisplayWizard("GameObjects Replacer", typeof(ReplaceGameObjects), "Replace");
 		}
 
 		void OnWizardCreate()
