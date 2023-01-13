@@ -10,14 +10,19 @@ namespace RedeevEditor.Utilities
     {
         #region ReorderableList
 
-        public static ReorderableList CreateList(SerializedObject serializedObject, string listName, params string[] elements)
+        public static ReorderableList CreateList(SerializedObject serializedObject, SerializedProperty property, params string[] propertyNames)
         {
-            ReorderableList list = new(serializedObject, serializedObject.FindProperty(listName), true, true, true, true);
-            AddCallbacks(list, listName, elements);
+            ReorderableList list = new(serializedObject, property, true, true, true, true);
+            AddCallbacks(list, property.name, propertyNames);
             return list;
         }
 
-        private static void AddCallbacks(ReorderableList list, string listName, params string[] elements)
+        public static ReorderableList CreateList(SerializedObject serializedObject, string listName, params string[] propertyNames)
+        {
+            return CreateList(serializedObject, serializedObject.FindProperty(listName), propertyNames);
+        }
+
+        private static void AddCallbacks(ReorderableList list, string listName, params string[] propertyNames)
         {
             list.drawHeaderCallback = (Rect rect) =>
             {
@@ -26,18 +31,17 @@ namespace RedeevEditor.Utilities
 
             list.drawElementCallback = (Rect rect, int index, bool isActive, bool isFocused) =>
             {
-                rect.y += 2;
                 SerializedProperty element = list.serializedProperty.GetArrayElementAtIndex(index);
-                float offset = 0f;
-
-                if (elements.Length > 0)
+                float xOffset = 0f;
+                if (propertyNames.Length > 0)
                 {
-                    for (int i = 0; i < elements.Length; i++)
+                    float width = 1f / propertyNames.Length;
+                    for (int i = 0; i < propertyNames.Length; i++)
                     {
-                        offset += AddElement(rect, element.FindPropertyRelative(elements[i]), offset, 10f / elements.Length);
+                        xOffset += DrawElementGUI(rect, element.FindPropertyRelative(propertyNames[i]), xOffset, width);
                     }
                 }
-                else AddElement(rect, element, 0f, 10f);
+                else DrawElementGUI(rect, element, 0f, 1f);
 
             };
 
@@ -47,10 +51,11 @@ namespace RedeevEditor.Utilities
             };
         }
 
-        private static float AddElement(Rect rect, SerializedProperty property, float x, float width)
+        private static float DrawElementGUI(Rect rect, SerializedProperty property, float xOffset, float scale)
         {
-            EditorGUI.PropertyField(new Rect(rect.x + x / 10 * rect.width, rect.y, rect.width * width / 10f - 5f, EditorGUIUtility.singleLineHeight), property, GUIContent.none);
-            return width;
+            Rect propertyRect = new(rect.x + xOffset * rect.width, rect.y + EditorGUIUtility.standardVerticalSpacing, rect.width * scale - 5f, EditorGUIUtility.singleLineHeight);
+            EditorGUI.PropertyField(propertyRect, property, GUIContent.none);
+            return scale;
         }
 
         #endregion

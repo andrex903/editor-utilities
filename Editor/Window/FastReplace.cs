@@ -65,7 +65,7 @@ namespace RedeevEditor.Utilities
             if (go && !objectsToReplace.Contains(go)) objectsToReplace.Add(go);
         }
 
-        private void Update()
+        private void OnInspectorUpdate()
         {
             if (!useSelection) return;
 
@@ -75,7 +75,7 @@ namespace RedeevEditor.Utilities
                 lastSelectionCount = selectionCount;
                 Repaint();
             }
-        }
+        }      
 
         private void DeselectRandom()
         {
