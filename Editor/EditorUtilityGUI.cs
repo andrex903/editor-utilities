@@ -13,6 +13,12 @@ namespace RedeevEditor.Utilities
 
         private static Dictionary<string, ReorderableList> cachedLists;
 
+        [UnityEditor.Callbacks.DidReloadScripts]
+        private static void ClearCachedListsOnReload()
+        {
+            ClearCachedLists();
+        }        
+
         public static ReorderableList GetOrCreateCachedList(SerializedProperty property, params string[] propertyNames)
         {
             cachedLists ??= new();
