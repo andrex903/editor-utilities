@@ -1,5 +1,6 @@
 #if UNITY_EDITOR
 using System;
+using System.Collections.Generic;
 using UnityEditor;
 using UnityEditorInternal;
 using UnityEngine;
@@ -9,6 +10,24 @@ namespace RedeevEditor.Utilities
     public static class EditorUtilityGUI
     {
         #region ReorderableList
+
+        private static Dictionary<string, ReorderableList> cachedLists;
+
+        public static ReorderableList GetOrCreateCachedList(SerializedProperty property, params string[] propertyNames)
+        {
+            cachedLists ??= new();
+
+            if (!cachedLists.ContainsKey(property.propertyPath))
+            {
+                cachedLists[property.propertyPath] = CreateList(property.serializedObject, property, propertyNames);
+            }
+            return cachedLists[property.propertyPath];
+        }
+
+        public static void ClearCachedLists()
+        {
+            if (cachedLists != null) cachedLists.Clear();
+        }
 
         public static ReorderableList CreateList(SerializedObject serializedObject, SerializedProperty property, params string[] propertyNames)
         {
