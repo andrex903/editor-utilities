@@ -11,7 +11,7 @@ namespace RedeevEditor.Utilities
     {
         #region ReorderableList
 
-        private static Dictionary<string, ReorderableList> cachedLists;
+        private static Dictionary<SerializedProperty, ReorderableList> cachedLists;
 
         [UnityEditor.Callbacks.DidReloadScripts]
         private static void ClearCachedListsOnReload()
@@ -23,11 +23,11 @@ namespace RedeevEditor.Utilities
         {
             cachedLists ??= new();
 
-            if (!cachedLists.ContainsKey(property.propertyPath))
+            if (!cachedLists.ContainsKey(property))
             {
-                cachedLists[property.propertyPath] = CreateList(property.serializedObject, property, propertyNames);
+                cachedLists[property] = CreateList(property.serializedObject, property, propertyNames);
             }
-            return cachedLists[property.propertyPath];
+            return cachedLists[property];
         }
 
         public static void ClearCachedLists()
