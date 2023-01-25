@@ -5,7 +5,7 @@ using UnityEngine;
 
 namespace RedeevEditor.Utilities
 {
-    public class Selector : EditorWindow
+    public class FastSelector : EditorWindow
     {
         private string tag = "Untagged";
         private LayerMask layerMask;
@@ -13,10 +13,10 @@ namespace RedeevEditor.Utilities
         private const float heightSize = 225f;
         private const float widthSize = 300f;
 
-        [MenuItem("Tools/Utilities/Selector")]
+        [MenuItem("Tools/Utilities/Fast Selector")]
         public static void ShowWindow()
         {
-            var window = GetWindow<Selector>(title: "Selector");
+            var window = GetWindow<FastSelector>(title: "Fast Selector");
             window.minSize = new Vector2(widthSize, heightSize);
         }
 
