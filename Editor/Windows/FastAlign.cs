@@ -37,7 +37,7 @@ namespace RedeevEditor.Utilities
             EditorGUILayout.EndVertical();
         }
 
-        private void Update()
+        private void OnInspectorUpdate()
         {
             selectionCount = Selection.count;
             if (selectionCount != lastSelectionCount)
@@ -46,7 +46,6 @@ namespace RedeevEditor.Utilities
                 Repaint();
             }
         }
-
 
         public void Align()
         {
