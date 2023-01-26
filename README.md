@@ -21,9 +21,3 @@ The following table indicates the folder structure of the package:
 |---|---|
 |`<Editor>`|Root folder containing the source for the editor scripts.|
 |`<Tests>`|Root folder containing the source for the tests.|
-
-## Document revision history
-
-|Date|Reason|
-|---|---|
-|January 07, 2023|Document created. Matches package version 1.0.0|
