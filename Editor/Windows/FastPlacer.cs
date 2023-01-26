@@ -23,6 +23,8 @@ namespace RedeevEditor.Utilities
         private bool gridFoldout = false;
         private bool placingOptionsFoldout = false;
 
+        private Vector2 scrollPos = Vector2.zero;
+
         private GameObject lastPlaced = null;
 
         private readonly int HASH = "FastPlacer".GetHashCode();
@@ -154,6 +156,7 @@ namespace RedeevEditor.Utilities
 
         private void OnGUI()
         {
+            scrollPos = EditorGUILayout.BeginScrollView(scrollPos);
             EditorGUILayout.Space();
 
             if (EditorApplication.isPlaying)
@@ -180,6 +183,7 @@ namespace RedeevEditor.Utilities
             }
 
             if (EditorGUI.EndChangeCheck()) EditorUtility.SetDirty(SceneData);
+            EditorGUILayout.EndScrollView();
         }
 
         private void PlacingOptionsGUI()
