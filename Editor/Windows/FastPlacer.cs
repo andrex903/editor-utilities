@@ -146,10 +146,10 @@ namespace RedeevEditor.Utilities
         private void ChangeLastPlaced(int amount)
         {
             if (SceneData.selected == null) return;
-            
+
             Undo.DestroyObjectImmediate(lastPlaced);
             ChangeSelection(amount);
-            PlaceGameObject(SceneData.selected.go);            
+            PlaceGameObject(SceneData.selected.go);
         }
 
         private void OnGUI()
@@ -191,7 +191,6 @@ namespace RedeevEditor.Utilities
                 LayerMask tempMask = EditorGUILayout.MaskField("Raycast Mask", InternalEditorUtility.LayerMaskToConcatenatedLayersMask(SceneData.RayMask), InternalEditorUtility.layers);
                 SceneData.RayMask = InternalEditorUtility.ConcatenatedLayersMaskToLayerMask(tempMask);
                 SceneData.useNormals = EditorGUILayout.Toggle("Align with Normals", SceneData.useNormals);
-                SceneData.chooseRandom = EditorGUILayout.Toggle("Randomize Selection", SceneData.chooseRandom);
                 EditorGUI.indentLevel--;
             }
             EditorGUILayout.EndVertical();
@@ -202,6 +201,7 @@ namespace RedeevEditor.Utilities
             EditorGUILayout.BeginVertical("Box");
 
             EditorGUILayout.LabelField("Groups:", EditorStyles.boldLabel);
+            SceneData.chooseRandom = EditorGUILayout.Toggle("Randomize Selection", SceneData.chooseRandom);
 
             for (int i = 0; i < SceneData.groups.Count; i++)
             {
@@ -212,6 +212,7 @@ namespace RedeevEditor.Utilities
                 if (SceneData.groups[i].isOpen = EditorGUILayout.Foldout(SceneData.groups[i].isOpen, title, EditorStyles.foldout))
                 {
                     GUILayout.BeginVertical();
+                    if (SceneData.selectedGroup != SceneData.groups[i] && GUILayout.Button("Activate")) SceneData.selectedGroup = SceneData.groups[i];
                     GUILayout.BeginHorizontal();
                     SceneData.groups[i].name = EditorGUILayout.TextField(SceneData.groups[i].name);
                     if (SceneData.groups[i].name.Equals(string.Empty)) SceneData.groups[i].name = "Group " + i;
@@ -248,7 +249,7 @@ namespace RedeevEditor.Utilities
 
         private void GroupElementsGUI(Group group)
         {
-            EditorGUILayout.BeginVertical("Box");
+            Rect rect = EditorGUILayout.BeginVertical("Box");
 
             EditorGUILayout.LabelField("GameObjects:", EditorStyles.boldLabel);
 
@@ -280,6 +281,11 @@ namespace RedeevEditor.Utilities
                 EditorGUILayout.EndHorizontal();
             }
             EditorGUILayout.EndVertical();
+
+            EditorUtilityGUI.DropAreaGUI(rect, obj =>
+            {
+                group.elements.Add(new Element() { go = obj as GameObject });
+            });
         }
 
         private void OffsetRoationAndScaleGUI()
