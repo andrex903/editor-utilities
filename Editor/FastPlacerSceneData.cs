@@ -13,8 +13,7 @@ namespace RedeevEditor.Utilities
             public string name = "";
             public Transform parent = null;
             public List<Element> elements = new();
-            public bool isOpen = true;
-            public bool useRandom = false;
+            public bool isOpen = true;            
 
             public GameObject RandomGameObject()
             {
@@ -48,12 +47,15 @@ namespace RedeevEditor.Utilities
         public Vector3 offset;
         public Vector3 rotation;
         public Vector3 scale = Vector3.one;
+        public Space space = Space.World;
 
-        public float startingRot = 0f;
+        public Vector3 startingRot = Vector3.zero;
         public float angleTab = 90f;
 
         public bool randomizeRotation = false;
         public bool randomizeScale = false;
+
+        public bool chooseRandom = false;
 
         public float minScale = 0.5f;
         public float maxScale = 1f;

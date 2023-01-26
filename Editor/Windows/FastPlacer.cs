@@ -9,8 +9,11 @@ namespace RedeevEditor.Utilities
     public class FastPlacer : EditorWindow
     {
         private Vector3 hitPoint;
+        private Vector3 lastPoint;
         private Vector3 hitNormal;
+        private Vector3 lastNormal;
         private Transform root;
+        private Transform lastRoot;
 
         private int controlID;
         private bool paintingEnabled = false;
@@ -19,6 +22,8 @@ namespace RedeevEditor.Utilities
         private bool snapFoldout = false;
         private bool gridFoldout = false;
         private bool placingOptionsFoldout = false;
+
+        private GameObject lastPlaced = null;
 
         private readonly int HASH = "FastPlacer".GetHashCode();
 
@@ -33,8 +38,8 @@ namespace RedeevEditor.Utilities
                     sceneData = FindObjectOfType<FastPlacerSceneData>();
                     if (sceneData == null)
                     {
-                        sceneData = new GameObject(nameof(FastPlacerSceneData)).AddComponent<FastPlacerSceneData>();
-                        sceneData.gameObject.hideFlags = HideFlags.HideInHierarchy;
+                        sceneData = new GameObject($"({nameof(FastPlacerSceneData)})").AddComponent<FastPlacerSceneData>();
+                        sceneData.gameObject.hideFlags = HideFlags.HideInInspector;
                     }
                 }
                 return sceneData;
@@ -73,36 +78,78 @@ namespace RedeevEditor.Utilities
 
             if (!paintingEnabled || evt.alt) return;
 
-            if (evt.Equals(Event.KeyboardEvent("Escape")))
-            {
-                paintingEnabled = false;
-                evt.Use();
-                Repaint();
-                return;
-            }
-
-            if (evt.Equals(Event.KeyboardEvent("Tab")))
-            {
-                AddRotation();
-                evt.Use();
-                Repaint();
-                return;
-            }
-
             SetTargetPoint(evt);
             SetTargetVisualization();
 
-            if (evt.type == EventType.Layout)
+            if (evt.GetTypeForControl(controlID) == EventType.KeyDown)
             {
-                HandleUtility.AddDefaultControl(controlID);
-                return;
+                if (evt.keyCode == KeyCode.Escape)
+                {
+                    paintingEnabled = false;
+                    Repaint();
+                    evt.Use();
+                }
+                else if (evt.keyCode == KeyCode.Space)
+                {
+                    AddRotation();
+                    Repaint();
+                    evt.Use();
+                }
+                else if (evt.keyCode == KeyCode.UpArrow)
+                {
+                    if (!SceneData.chooseRandom) ChangeSelection(-1);
+                    evt.Use();
+                }
+                else if (evt.keyCode == KeyCode.DownArrow)
+                {
+                    if (!SceneData.chooseRandom) ChangeSelection(1);
+                    evt.Use();
+                }
+                else if (evt.keyCode == KeyCode.LeftArrow)
+                {
+                    ChangeLastPlaced(-1);
+                    evt.Use();
+                }
+                else if (evt.keyCode == KeyCode.RightArrow)
+                {
+                    ChangeLastPlaced(1);
+                    evt.Use();
+                }
             }
-
-            if (evt.type == EventType.MouseDown && evt.button == 0)
+            else if (evt.type == EventType.MouseDown && evt.button == 0)
             {
+                lastPoint = hitPoint;
+                lastNormal = hitNormal;
+                lastRoot = root;
                 PlaceGameObject();
                 evt.Use();
             }
+            else if (evt.type == EventType.Layout)
+            {
+                HandleUtility.AddDefaultControl(controlID);
+            }
+        }
+
+        private void ChangeSelection(int amount)
+        {
+            if (SceneData.selected != null && SceneData.selectedGroup != null)
+            {
+                int index = SceneData.selectedGroup.elements.IndexOf(SceneData.selected) + amount;
+                if (index >= 0 && index < SceneData.selectedGroup.elements.Count)
+                {
+                    SceneData.Select(SceneData.selectedGroup.elements[index]);
+                    Repaint();
+                }
+            }
+        }
+
+        private void ChangeLastPlaced(int amount)
+        {
+            if (SceneData.selected == null) return;
+            
+            Undo.DestroyObjectImmediate(lastPlaced);
+            ChangeSelection(amount);
+            PlaceGameObject(SceneData.selected.go);            
         }
 
         private void OnGUI()
@@ -118,6 +165,7 @@ namespace RedeevEditor.Utilities
             if (GUILayout.Button(paintingEnabled ? "Stop" : "Start", GUILayout.Height(30)))
             {
                 paintingEnabled = !paintingEnabled;
+                if (paintingEnabled) Selection.objects = new Object[0];
             }
 
             EditorGUI.BeginChangeCheck();
@@ -130,7 +178,6 @@ namespace RedeevEditor.Utilities
             {
                 if (EditorUtility.DisplayDialog("Confirmation required", "Are you sure to delete the current scene settings?", "Confirm", "Cancel")) DestroyImmediate(SceneData.gameObject);
             }
-            if (GUILayout.Button("Show Scene Settings")) SceneData.gameObject.hideFlags = HideFlags.HideInInspector;
 
             if (EditorGUI.EndChangeCheck()) EditorUtility.SetDirty(SceneData);
         }
@@ -144,6 +191,7 @@ namespace RedeevEditor.Utilities
                 LayerMask tempMask = EditorGUILayout.MaskField("Raycast Mask", InternalEditorUtility.LayerMaskToConcatenatedLayersMask(SceneData.RayMask), InternalEditorUtility.layers);
                 SceneData.RayMask = InternalEditorUtility.ConcatenatedLayersMaskToLayerMask(tempMask);
                 SceneData.useNormals = EditorGUILayout.Toggle("Align with Normals", SceneData.useNormals);
+                SceneData.chooseRandom = EditorGUILayout.Toggle("Randomize Selection", SceneData.chooseRandom);
                 EditorGUI.indentLevel--;
             }
             EditorGUILayout.EndVertical();
@@ -159,8 +207,9 @@ namespace RedeevEditor.Utilities
             {
                 EditorGUILayout.BeginVertical("Box");
                 if (SceneData.groups[i].name.Equals(string.Empty)) SceneData.groups[i].name = "Group" + i;
+                string title = (SceneData.selectedGroup == SceneData.groups[i]) ? SceneData.groups[i].name + " (Active)" : SceneData.groups[i].name;
 
-                if (SceneData.groups[i].isOpen = EditorGUILayout.Foldout(SceneData.groups[i].isOpen, SceneData.groups[i].name, EditorStyles.foldout))
+                if (SceneData.groups[i].isOpen = EditorGUILayout.Foldout(SceneData.groups[i].isOpen, title, EditorStyles.foldout))
                 {
                     GUILayout.BeginVertical();
                     GUILayout.BeginHorizontal();
@@ -203,13 +252,6 @@ namespace RedeevEditor.Utilities
 
             EditorGUILayout.LabelField("GameObjects:", EditorStyles.boldLabel);
 
-            group.useRandom = GUILayout.Toggle(group.useRandom, "  Choose Random");
-            if (group.useRandom)
-            {
-                SceneData.Deselect();
-                SceneData.selectedGroup = group;
-            }
-
             EditorGUILayout.Space(1);
 
             foreach (var element in group.elements)
@@ -221,7 +263,7 @@ namespace RedeevEditor.Utilities
                 EditorGUILayout.BeginHorizontal();
 
                 bool oldEnabled = GUI.enabled;
-                GUI.enabled = element.go && !group.useRandom;
+                GUI.enabled = element.go && !SceneData.chooseRandom;
                 element.isSelected = GUILayout.Toggle(element.isSelected, "", GUILayout.Width(20));
                 GUI.enabled = oldEnabled;
                 if (element.isSelected) SceneData.Select(element);
@@ -250,16 +292,17 @@ namespace RedeevEditor.Utilities
                 SceneData.offset = EditorGUILayout.Vector3Field("Position Offset", SceneData.offset);
                 EditorGUILayout.EndVertical();
                 EditorGUILayout.BeginVertical("Box");
+                SceneData.space = (Space)EditorGUILayout.EnumPopup("Space", SceneData.space);
                 SceneData.randomizeRotation = EditorGUILayout.Toggle("Randomize Rotation", SceneData.randomizeRotation);
+                SceneData.currentAxis = (Axis)EditorGUILayout.EnumPopup("Axis", SceneData.currentAxis);
                 if (SceneData.randomizeRotation)
                 {
-                    SceneData.currentAxis = (Axis)EditorGUILayout.EnumPopup("Axis", SceneData.currentAxis);
                     EditorGUILayout.MinMaxSlider($"Range [{SceneData.minAngle:N0}-{SceneData.maxAngle:N0}]", ref SceneData.minAngle, ref SceneData.maxAngle, 0f, 360f);
                 }
                 else
                 {
-                    SceneData.rotation = EditorGUILayout.Vector3Field("Rotation", SceneData.rotation);
                     SceneData.angleTab = EditorGUILayout.FloatField("Rotation Delta", SceneData.angleTab);
+                    SceneData.rotation = EditorGUILayout.Vector3Field("Rotation", SceneData.rotation);
                 }
                 EditorGUILayout.EndVertical();
                 EditorGUILayout.BeginVertical("Box");
@@ -372,40 +415,53 @@ namespace RedeevEditor.Utilities
 
         private void PlaceGameObject()
         {
-            if (!root) return;
+            if (!lastRoot) return;
 
             GameObject original = null;
 
-            if (SceneData.selectedGroup != null && SceneData.selectedGroup.useRandom) original = SceneData.selectedGroup.RandomGameObject();
-            else if (SceneData.selected != null) original = SceneData.selected.go;
+            if (SceneData.selectedGroup != null && SceneData.chooseRandom)
+            {
+                SceneData.Select(SceneData.selectedGroup.elements[Random.Range(0, SceneData.selectedGroup.elements.Count)]);
+                Repaint();
+            }
 
+            if (SceneData.selected != null) original = SceneData.selected.go;
+
+            PlaceGameObject(original);
+        }
+
+        private void PlaceGameObject(GameObject original)
+        {
             if (!original)
             {
                 Debug.Log("No gameObject selected!");
                 return;
             }
 
+            Selection.objects = new Object[0];
+
             GameObject instance;
             if (PrefabUtility.GetPrefabAssetType(original) == PrefabAssetType.NotAPrefab) instance = Instantiate(original);
             else instance = PrefabUtility.InstantiatePrefab(original) as GameObject;
 
+
             if (SceneData.randomizeScale) instance.transform.localScale = original.transform.localScale * Random.Range(SceneData.minScale, SceneData.maxScale);
             else instance.transform.localScale = new(original.transform.localScale.x * SceneData.scale.x, original.transform.localScale.y * SceneData.scale.y, original.transform.localScale.z * SceneData.scale.z);
 
-            instance.transform.position = hitPoint + SceneData.offset;
+            instance.transform.position = lastPoint + SceneData.offset;
 
             if (SceneData.useNormals)
             {
-                instance.transform.rotation = Quaternion.FromToRotation(Vector3.up, hitNormal);
-                if (SceneData.randomizeRotation && SceneData.currentAxis == Axis.Y)
+                instance.transform.rotation = Quaternion.FromToRotation(GetAxisVector(1f), lastNormal);
+                if (SceneData.randomizeRotation)
                 {
-                    instance.transform.RotateAround(instance.transform.position, hitNormal, Random.Range(SceneData.minAngle, SceneData.maxAngle));
+                    instance.transform.RotateAround(instance.transform.position, lastNormal, Random.Range(SceneData.minAngle, SceneData.maxAngle));
                 }
             }
             else
             {
-                if (SceneData.randomizeRotation) instance.transform.rotation = GetRandomAngle();
-                else instance.transform.rotation = Quaternion.Euler(SceneData.rotation);
+                if (SceneData.randomizeRotation) instance.transform.Rotate(GetRandomAngle(), SceneData.space);
+                else instance.transform.Rotate(SceneData.rotation, SceneData.space);
             }
 
             if (SceneData.selectedGroup != null)
@@ -416,28 +472,30 @@ namespace RedeevEditor.Utilities
                 }
                 else
                 {
-                    Transform groupTransform = root.Find(SceneData.selectedGroup.name);
+                    Transform groupTransform = lastRoot.Find(SceneData.selectedGroup.name);
                     if (groupTransform) instance.transform.parent = groupTransform;
                     else
                     {
                         GameObject newParent = new(SceneData.selectedGroup.name);
-                        newParent.transform.SetParent(root);
+                        newParent.transform.SetParent(lastRoot);
                         newParent.transform.localPosition = Vector3.zero;
                         instance.transform.SetParent(newParent.transform);
                         Undo.RegisterCreatedObjectUndo(newParent, "Instantiated object parent");
                     }
                 }
             }
+
             Undo.RegisterCreatedObjectUndo(instance, "Instantiated object");
+            lastPlaced = instance;
         }
 
-        private void SetTargetPoint(Event e)
+        private void SetTargetPoint(Event evt)
         {
             root = null;
             Camera cam = Camera.current;
             if (cam != null)
             {
-                Ray ray = HandleUtility.GUIPointToWorldRay(new Vector2(e.mousePosition.x, e.mousePosition.y));
+                Ray ray = HandleUtility.GUIPointToWorldRay(new(evt.mousePosition.x, evt.mousePosition.y));
 
                 if (Physics.Raycast(ray, out RaycastHit hit, Mathf.Infinity, SceneData.RayMask))
                 {
@@ -447,7 +505,7 @@ namespace RedeevEditor.Utilities
                 }
                 else
                 {
-                    hitPoint = SnapToCustomGrid(cam.ScreenToWorldPoint(new Vector3(e.mousePosition.x, cam.pixelHeight - e.mousePosition.y, 20)));
+                    hitPoint = SnapToCustomGrid(cam.ScreenToWorldPoint(new(evt.mousePosition.x, cam.pixelHeight - evt.mousePosition.y, 20)));
                     hitNormal = Vector3.up;
                 }
             }
@@ -465,21 +523,26 @@ namespace RedeevEditor.Utilities
 
         private void AddRotation()
         {
-            SceneData.startingRot = SceneData.angleTab + SceneData.rotation.y;
-            if (SceneData.startingRot >= 360f) SceneData.startingRot -= 360f;
-            SceneData.rotation = new Vector3(0f, SceneData.startingRot, 0);
+            Vector3 delta = GetAxisVector(sceneData.angleTab);
+            SceneData.rotation += delta;
+            if (SceneData.rotation.x > 360f) SceneData.rotation.x -= 360f;
+            if (SceneData.rotation.y > 360f) SceneData.rotation.y -= 360f;
+            if (SceneData.rotation.z > 360f) SceneData.rotation.z -= 360f;
         }
 
-        private Quaternion GetRandomAngle()
+        private Vector3 GetRandomAngle()
         {
-            float random = Random.Range(SceneData.minAngle, SceneData.maxAngle);
+            return GetAxisVector(Random.Range(SceneData.minAngle, SceneData.maxAngle));
+        }
 
+        private Vector3 GetAxisVector(float value)
+        {
             return SceneData.currentAxis switch
             {
-                Axis.X => Quaternion.Euler(random, 0, 0),
-                Axis.Y => Quaternion.Euler(0, random, 0),
-                Axis.Z => Quaternion.Euler(0, 0, random),
-                _ => Quaternion.identity,
+                Axis.X => new Vector3(value, 0, 0),
+                Axis.Y => new Vector3(0, value, 0),
+                Axis.Z => new Vector3(0, 0, value),
+                _ => Vector3.zero,
             };
         }
 
