@@ -130,6 +130,7 @@ namespace RedeevEditor.Utilities
             {
                 if (EditorUtility.DisplayDialog("Confirmation required", "Are you sure to delete the current scene settings?", "Confirm", "Cancel")) DestroyImmediate(SceneData.gameObject);
             }
+            if (GUILayout.Button("Show Scene Settings")) SceneData.gameObject.hideFlags = HideFlags.HideInInspector;
 
             if (EditorGUI.EndChangeCheck()) EditorUtility.SetDirty(SceneData);
         }
