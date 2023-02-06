@@ -16,7 +16,7 @@ namespace RedeevEditor.Utilities
         private Transform lastRoot;
 
         private int controlID;
-        private bool paintingEnabled = false;
+        private bool isActive = false;
 
         private bool offsetFoldout = false;
         private bool snapFoldout = false;
@@ -62,7 +62,7 @@ namespace RedeevEditor.Utilities
 
         private void OnPlayModeStateChanged(PlayModeStateChange state)
         {
-            if (state == PlayModeStateChange.EnteredPlayMode) paintingEnabled = false;
+            if (state == PlayModeStateChange.EnteredPlayMode) isActive = false;
         }
 
         private void OnDisable()
@@ -78,7 +78,7 @@ namespace RedeevEditor.Utilities
             Event evt = Event.current;
             controlID = GUIUtility.GetControlID(HASH, FocusType.Passive);
 
-            if (!paintingEnabled || evt.alt) return;
+            if (!isActive || evt.alt) return;
 
             SetTargetPoint(evt);
             SetTargetVisualization();
@@ -87,7 +87,7 @@ namespace RedeevEditor.Utilities
             {
                 if (evt.keyCode == KeyCode.Escape)
                 {
-                    paintingEnabled = false;
+                    SetActive(false);
                     Repaint();
                     evt.Use();
                 }
@@ -154,6 +154,13 @@ namespace RedeevEditor.Utilities
             PlaceGameObject(SceneData.selected.go);
         }
 
+        private void SetActive(bool value)
+        {
+            isActive= value;
+            lastPlaced = null;
+            if (isActive) Selection.objects = new Object[0];
+        }
+
         private void OnGUI()
         {
             scrollPos = EditorGUILayout.BeginScrollView(scrollPos);
@@ -165,10 +172,9 @@ namespace RedeevEditor.Utilities
                 return;
             }
 
-            if (GUILayout.Button(paintingEnabled ? "Stop" : "Start", GUILayout.Height(30)))
+            if (GUILayout.Button(isActive ? "Stop" : "Start", GUILayout.Height(30)))
             {
-                paintingEnabled = !paintingEnabled;
-                if (paintingEnabled) Selection.objects = new Object[0];
+               SetActive(!isActive);
             }
 
             EditorGUI.BeginChangeCheck();
@@ -303,15 +309,15 @@ namespace RedeevEditor.Utilities
                 EditorGUILayout.EndVertical();
                 EditorGUILayout.BeginVertical("Box");
                 SceneData.space = (Space)EditorGUILayout.EnumPopup("Space", SceneData.space);
-                SceneData.randomizeRotation = EditorGUILayout.Toggle("Randomize Rotation", SceneData.randomizeRotation);
                 SceneData.currentAxis = (Axis)EditorGUILayout.EnumPopup("Axis", SceneData.currentAxis);
+                SceneData.angleTab = EditorGUILayout.FloatField("Rotation Delta", SceneData.angleTab);
+                SceneData.randomizeRotation = EditorGUILayout.Toggle("Randomize Rotation", SceneData.randomizeRotation);
                 if (SceneData.randomizeRotation)
                 {
                     EditorGUILayout.MinMaxSlider($"Range [{SceneData.minAngle:N0}-{SceneData.maxAngle:N0}]", ref SceneData.minAngle, ref SceneData.maxAngle, 0f, 360f);
                 }
                 else
                 {
-                    SceneData.angleTab = EditorGUILayout.FloatField("Rotation Delta", SceneData.angleTab);
                     SceneData.rotation = EditorGUILayout.Vector3Field("Rotation", SceneData.rotation);
                 }
                 EditorGUILayout.EndVertical();
@@ -538,6 +544,11 @@ namespace RedeevEditor.Utilities
             if (SceneData.rotation.x > 360f) SceneData.rotation.x -= 360f;
             if (SceneData.rotation.y > 360f) SceneData.rotation.y -= 360f;
             if (SceneData.rotation.z > 360f) SceneData.rotation.z -= 360f;
+
+            if (lastPlaced != null)
+            {
+                lastPlaced.transform.Rotate(delta, SceneData.space);
+            }
         }
 
         private Vector3 GetRandomAngle()
