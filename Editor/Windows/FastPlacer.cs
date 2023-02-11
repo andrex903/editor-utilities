@@ -67,6 +67,7 @@ namespace RedeevEditor.Utilities
 
         private void OnDisable()
         {
+            SetActive(false);
             SceneView.duringSceneGui -= OnSceneGUI;
             EditorApplication.playModeStateChanged -= OnPlayModeStateChanged;
         }
@@ -158,7 +159,8 @@ namespace RedeevEditor.Utilities
         {
             isActive= value;
             lastPlaced = null;
-            if (isActive) Selection.objects = new Object[0];
+            Selection.objects = new Object[0];
+            Tools.hidden = value;
         }
 
         private void OnGUI()
@@ -454,8 +456,6 @@ namespace RedeevEditor.Utilities
                 return;
             }
 
-            Selection.objects = new Object[0];
-
             GameObject instance;
             if (PrefabUtility.GetPrefabAssetType(original) == PrefabAssetType.NotAPrefab) instance = Instantiate(original);
             else instance = PrefabUtility.InstantiatePrefab(original) as GameObject;
@@ -503,6 +503,8 @@ namespace RedeevEditor.Utilities
 
             Undo.RegisterCreatedObjectUndo(instance, "Instantiated object");
             lastPlaced = instance;
+
+            Selection.activeGameObject = instance;
         }
 
         private void SetTargetPoint(Event evt)
