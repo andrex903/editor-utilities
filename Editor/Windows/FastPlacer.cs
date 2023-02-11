@@ -174,10 +174,15 @@ namespace RedeevEditor.Utilities
                 return;
             }
 
+            Color oldColor = GUI.backgroundColor;
+            GUI.backgroundColor = isActive ? Color.red : Color.green;
+
             if (GUILayout.Button(isActive ? "Stop" : "Start", GUILayout.Height(30)))
             {
-               SetActive(!isActive);
+                SetActive(!isActive);
             }
+
+            GUI.backgroundColor = oldColor;
 
             EditorGUI.BeginChangeCheck();
             GroupsGUI();
