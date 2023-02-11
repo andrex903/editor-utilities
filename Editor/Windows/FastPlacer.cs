@@ -1,4 +1,5 @@
 #if UNITY_EDITOR
+using System.Collections.Generic;
 using UnityEditor;
 using UnityEditorInternal;
 using UnityEngine;
@@ -19,6 +20,7 @@ namespace RedeevEditor.Utilities
         private bool isActive = false;
 
         private bool offsetFoldout = false;
+        private bool previewFoldout = false;
         private bool snapFoldout = false;
         private bool gridFoldout = false;
         private bool placingOptionsFoldout = false;
@@ -26,6 +28,8 @@ namespace RedeevEditor.Utilities
         private Vector2 scrollPos = Vector2.zero;
 
         private GameObject lastPlaced = null;
+
+        private KeyValuePair<GameObject, Texture2D> currentPreview;
 
         private readonly int HASH = "FastPlacer".GetHashCode();
 
@@ -177,12 +181,14 @@ namespace RedeevEditor.Utilities
             Color oldColor = GUI.backgroundColor;
             GUI.backgroundColor = isActive ? Color.red : Color.green;
 
-            if (GUILayout.Button(isActive ? "Stop" : "Start", GUILayout.Height(30)))
+            if (GUILayout.Button(isActive ? "Stop" : "Paint", GUILayout.Height(30)))
             {
                 SetActive(!isActive);
             }
 
             GUI.backgroundColor = oldColor;
+
+            MeshPreviewGUI();
 
             EditorGUI.BeginChangeCheck();
             GroupsGUI();
@@ -285,6 +291,7 @@ namespace RedeevEditor.Utilities
                 element.isSelected = GUILayout.Toggle(element.isSelected, "", GUILayout.Width(20));
                 GUI.enabled = oldEnabled;
                 if (element.isSelected) SceneData.Select(element);
+                else if (sceneData.selected == element) SceneData.Deselect();
 
                 element.go = EditorGUILayout.ObjectField(element.go, typeof(GameObject), true) as GameObject;
 
@@ -428,6 +435,33 @@ namespace RedeevEditor.Utilities
 
                 EditorGUI.indentLevel--;
 
+            }
+            EditorGUILayout.EndVertical();
+        }
+
+        private void MeshPreviewGUI()
+        {
+            if (SceneData.selected == null || SceneData.selected.go == null) return;
+
+            EditorGUILayout.BeginVertical("Box");
+            if (previewFoldout = EditorGUILayout.Foldout(previewFoldout, $"Preview: {sceneData.selected.go.name}"))
+            {
+                Texture2D preview;
+                if (currentPreview.Key == SceneData.selected.go)
+                {
+                    preview = currentPreview.Value;
+                }
+                else
+                {
+                    preview = AssetPreview.GetAssetPreview(SceneData.selected.go);
+                    currentPreview = new(SceneData.selected.go, preview);
+                }
+
+                if (preview != null)
+                {
+                    Rect rect = GUILayoutUtility.GetRect(position.width * 0.3f, position.width * 0.3f);
+                    EditorGUI.DrawPreviewTexture(rect, preview, null, ScaleMode.ScaleToFit, 0f);
+                }
             }
             EditorGUILayout.EndVertical();
         }
