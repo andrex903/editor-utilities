@@ -161,7 +161,7 @@ namespace RedeevEditor.Utilities
 
         private void SetActive(bool value)
         {
-            isActive= value;
+            isActive = value;
             lastPlaced = null;
             Selection.objects = new Object[0];
             Tools.hidden = value;
@@ -235,7 +235,19 @@ namespace RedeevEditor.Utilities
                 if (SceneData.groups[i].isOpen = EditorGUILayout.Foldout(SceneData.groups[i].isOpen, title, EditorStyles.foldout))
                 {
                     GUILayout.BeginVertical();
-                    if (SceneData.selectedGroup != SceneData.groups[i] && GUILayout.Button("Activate")) SceneData.selectedGroup = SceneData.groups[i];
+
+                    if (SceneData.selectedGroup != SceneData.groups[i])
+                    {
+                        if (GUILayout.Button("Activate")) SceneData.selectedGroup = SceneData.groups[i];
+                    }
+                    else
+                    {
+                        Color oldColor = GUI.backgroundColor;
+                        GUI.backgroundColor = Color.cyan;
+                        GUILayout.Button("Active");
+                        GUI.backgroundColor = oldColor;
+                    }
+
                     GUILayout.BeginHorizontal();
                     SceneData.groups[i].name = EditorGUILayout.TextField(SceneData.groups[i].name);
                     if (SceneData.groups[i].name.Equals(string.Empty)) SceneData.groups[i].name = "Group " + i;
@@ -441,27 +453,30 @@ namespace RedeevEditor.Utilities
 
         private void MeshPreviewGUI()
         {
-            if (SceneData.selected == null || SceneData.selected.go == null) return;
-
             EditorGUILayout.BeginVertical("Box");
-            if (previewFoldout = EditorGUILayout.Foldout(previewFoldout, $"Preview: {sceneData.selected.go.name}"))
+            if (previewFoldout = EditorGUILayout.Foldout(previewFoldout, $"Preview"))
             {
-                Texture2D preview;
-                if (currentPreview.Key == SceneData.selected.go)
+                Rect rect = GUILayoutUtility.GetRect(position.width * 0.3f, position.width * 0.3f);
+
+                if (SceneData.selected != null && sceneData.selected.go != null)
                 {
-                    preview = currentPreview.Value;
-                }
-                else
-                {
-                    preview = AssetPreview.GetAssetPreview(SceneData.selected.go);
-                    currentPreview = new(SceneData.selected.go, preview);
+                    Texture2D preview;
+                    if (currentPreview.Key == sceneData.selected.go && currentPreview.Value != null)
+                    {
+                        preview = currentPreview.Value;
+                    }
+                    else
+                    {
+                        preview = AssetPreview.GetAssetPreview(sceneData.selected.go);
+                        currentPreview = new(sceneData.selected.go, preview);
+                    }
+
+                    if (preview != null)
+                    {
+                        EditorGUI.DrawPreviewTexture(rect, preview, null, ScaleMode.ScaleToFit, 0f);
+                    }
                 }
 
-                if (preview != null)
-                {
-                    Rect rect = GUILayoutUtility.GetRect(position.width * 0.3f, position.width * 0.3f);
-                    EditorGUI.DrawPreviewTexture(rect, preview, null, ScaleMode.ScaleToFit, 0f);
-                }
             }
             EditorGUILayout.EndVertical();
         }
