@@ -161,7 +161,8 @@ namespace RedeevEditor.Utilities
             if (!isActive || evt.alt) return;
 
             GetHitInformations(evt);
-            DrawPreview();
+            if (SceneData.showPreview) DrawPreview();
+            else DrawTarget();
 
             if (evt.GetTypeForControl(controlID) == EventType.KeyDown)
             {
@@ -192,11 +193,10 @@ namespace RedeevEditor.Utilities
             {
                 clickHit = currentHit;
                 if (clickHit != null) PlaceGameObject();
-                if (SceneData.chooseRandom)
-                {
-                    SelectRandomPrefab();
-                }
+
+                if (SceneData.chooseRandom) SelectRandomPrefab();             
                 CreatePreview(clickHit);
+
                 evt.Use();
             }
             else if (evt.type == EventType.Layout)
@@ -252,6 +252,8 @@ namespace RedeevEditor.Utilities
                 LayerMask tempMask = EditorGUILayout.MaskField("Raycast Mask", InternalEditorUtility.LayerMaskToConcatenatedLayersMask(SceneData.RayMask), InternalEditorUtility.layers);
                 SceneData.RayMask = InternalEditorUtility.ConcatenatedLayersMaskToLayerMask(tempMask);
                 SceneData.useNormals = EditorGUILayout.Toggle("Align with Normals", SceneData.useNormals);
+                SceneData.showPreview = EditorGUILayout.Toggle("Show Preview", SceneData.showPreview);
+                if (!SceneData.showPreview) DestroyPreview();
                 EditorGUI.indentLevel--;
             }
             EditorGUILayout.EndVertical();
@@ -557,7 +559,7 @@ namespace RedeevEditor.Utilities
         {
             DestroyPreview();
 
-            if (selectedPrefab)
+            if (SceneData.showPreview && selectedPrefab)
             {
                 preview = InstantiateObject(selectedPrefab, hit);
                 preview.hideFlags = HideFlags.HideAndDontSave;
