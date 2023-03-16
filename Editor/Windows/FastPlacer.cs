@@ -9,12 +9,24 @@ namespace RedeevEditor.Utilities
 {
     public class FastPlacer : EditorWindow
     {
-        private Vector3 hitPoint;
-        private Vector3 lastPoint;
-        private Vector3 hitNormal;
-        private Vector3 lastNormal;
-        private Transform root;
-        private Transform lastRoot;
+        private class HitInfo
+        {
+            public Transform root;
+            public Vector3 point;
+            public Vector3 normal;
+
+            public HitInfo(Transform root, Vector3 point, Vector3 normal)
+            {
+                this.root = root;
+                this.point = point;
+                this.normal = normal;
+            }
+        }
+
+        private HitInfo currentHit;
+        private HitInfo clickHit;
+
+        private bool canPlace = false;
 
         private int controlID;
         private bool isActive = false;
@@ -27,7 +39,8 @@ namespace RedeevEditor.Utilities
 
         private Vector2 scrollPos = Vector2.zero;
 
-        private GameObject lastPlaced = null;
+        private GameObject preview = null;
+        private GameObject selectedPrefab = null;
 
         private KeyValuePair<GameObject, Texture2D> currentPreview;
 
@@ -64,17 +77,79 @@ namespace RedeevEditor.Utilities
             EditorApplication.playModeStateChanged += OnPlayModeStateChanged;
         }
 
-        private void OnPlayModeStateChanged(PlayModeStateChange state)
-        {
-            if (state == PlayModeStateChange.EnteredPlayMode) isActive = false;
-        }
-
         private void OnDisable()
         {
             SetActive(false);
             SceneView.duringSceneGui -= OnSceneGUI;
             EditorApplication.playModeStateChanged -= OnPlayModeStateChanged;
         }
+
+        private void OnPlayModeStateChanged(PlayModeStateChange state)
+        {
+            if (state == PlayModeStateChange.EnteredPlayMode) isActive = false;
+        }
+
+        private void SetActive(bool value)
+        {
+            isActive = value;
+
+            Selection.objects = new Object[0];
+            Tools.hidden = value;
+
+            if (value)
+            {
+                SelectPrefab();
+                CreatePreview(new(null, Vector3.zero, Vector3.up));
+            }
+            else
+            {
+                DestroyPreview();
+            }
+        }
+
+        #region Generic
+
+        private void GetHitInformations(Event evt)
+        {
+            Ray ray = HandleUtility.GUIPointToWorldRay(new(evt.mousePosition.x, evt.mousePosition.y));
+
+            if (Physics.Raycast(ray, out RaycastHit hit, Mathf.Infinity, SceneData.RayMask))
+            {
+                currentHit = new(hit.transform.root, SnapToCustomGrid(hit.point), hit.normal);
+            }
+            else
+            {
+                currentHit = null;
+            }
+        }
+
+        private void DrawTarget()
+        {
+            if (currentHit == null) return;
+
+            Color oldColor = Handles.color;
+            Handles.color = new Color(1, 0, 0, .5f);
+            Handles.DrawSolidDisc(currentHit.point, currentHit.normal, .25f);
+            Handles.color = oldColor;
+        }
+
+        private Vector3 GetRandomAngle()
+        {
+            return GetAxisVector(Random.Range(SceneData.minAngle, SceneData.maxAngle));
+        }
+
+        private Vector3 GetAxisVector(float value)
+        {
+            return SceneData.currentAxis switch
+            {
+                Axis.X => new Vector3(value, 0, 0),
+                Axis.Y => new Vector3(0, value, 0),
+                Axis.Z => new Vector3(0, 0, value),
+                _ => Vector3.zero,
+            };
+        }
+
+        #endregion
 
         #region GUI
 
@@ -85,8 +160,8 @@ namespace RedeevEditor.Utilities
 
             if (!isActive || evt.alt) return;
 
-            SetTargetPoint(evt);
-            SetTargetVisualization();
+            GetHitInformations(evt);
+            DrawPreview();
 
             if (evt.GetTypeForControl(controlID) == EventType.KeyDown)
             {
@@ -98,7 +173,7 @@ namespace RedeevEditor.Utilities
                 }
                 else if (evt.keyCode == KeyCode.Space)
                 {
-                    AddRotation();
+                    ChangeRotation();
                     Repaint();
                     evt.Use();
                 }
@@ -112,59 +187,22 @@ namespace RedeevEditor.Utilities
                     if (!SceneData.chooseRandom) ChangeSelection(1);
                     evt.Use();
                 }
-                else if (evt.keyCode == KeyCode.LeftArrow)
-                {
-                    ChangeLastPlaced(-1);
-                    evt.Use();
-                }
-                else if (evt.keyCode == KeyCode.RightArrow)
-                {
-                    ChangeLastPlaced(1);
-                    evt.Use();
-                }
             }
             else if (evt.type == EventType.MouseDown && evt.button == 0)
             {
-                lastPoint = hitPoint;
-                lastNormal = hitNormal;
-                lastRoot = root;
-                PlaceGameObject();
+                clickHit = currentHit;
+                if (clickHit != null) PlaceGameObject();
+                if (SceneData.chooseRandom)
+                {
+                    SelectRandomPrefab();
+                }
+                CreatePreview(clickHit);
                 evt.Use();
             }
             else if (evt.type == EventType.Layout)
             {
                 HandleUtility.AddDefaultControl(controlID);
             }
-        }
-
-        private void ChangeSelection(int amount)
-        {
-            if (SceneData.selected != null && SceneData.selectedGroup != null)
-            {
-                int index = SceneData.selectedGroup.elements.IndexOf(SceneData.selected) + amount;
-                if (index >= 0 && index < SceneData.selectedGroup.elements.Count)
-                {
-                    SceneData.Select(SceneData.selectedGroup.elements[index]);
-                    Repaint();
-                }
-            }
-        }
-
-        private void ChangeLastPlaced(int amount)
-        {
-            if (SceneData.selected == null) return;
-
-            Undo.DestroyObjectImmediate(lastPlaced);
-            ChangeSelection(amount);
-            PlaceGameObject(SceneData.selected.go);
-        }
-
-        private void SetActive(bool value)
-        {
-            isActive = value;
-            lastPlaced = null;
-            Selection.objects = new Object[0];
-            Tools.hidden = value;
         }
 
         private void OnGUI()
@@ -483,117 +521,24 @@ namespace RedeevEditor.Utilities
 
         #endregion
 
-        #region Placing
+        #region Editing 
 
-        private void PlaceGameObject()
+        private void ChangeSelection(int amount)
         {
-            if (!lastRoot) return;
-
-            GameObject original = null;
-
-            if (SceneData.selectedGroup != null && SceneData.chooseRandom)
+            if (SceneData.selected != null && SceneData.selectedGroup != null)
             {
-                SceneData.Select(SceneData.selectedGroup.elements[Random.Range(0, SceneData.selectedGroup.elements.Count)]);
-                Repaint();
-            }
-
-            if (SceneData.selected != null) original = SceneData.selected.go;
-
-            PlaceGameObject(original);
-        }
-
-        private void PlaceGameObject(GameObject original)
-        {
-            if (!original)
-            {
-                Debug.Log("No gameObject selected!");
-                return;
-            }
-
-            GameObject instance;
-            if (PrefabUtility.GetPrefabAssetType(original) == PrefabAssetType.NotAPrefab) instance = Instantiate(original);
-            else instance = PrefabUtility.InstantiatePrefab(original) as GameObject;
-
-
-            if (SceneData.randomizeScale) instance.transform.localScale = original.transform.localScale * Random.Range(SceneData.minScale, SceneData.maxScale);
-            else instance.transform.localScale = new(original.transform.localScale.x * SceneData.scale.x, original.transform.localScale.y * SceneData.scale.y, original.transform.localScale.z * SceneData.scale.z);
-
-            instance.transform.position = lastPoint + SceneData.offset;
-
-            if (SceneData.useNormals)
-            {
-                instance.transform.rotation = Quaternion.FromToRotation(GetAxisVector(1f), lastNormal);
-                if (SceneData.randomizeRotation)
+                int index = SceneData.selectedGroup.elements.IndexOf(SceneData.selected) + amount;
+                if (index >= 0 && index < SceneData.selectedGroup.elements.Count)
                 {
-                    instance.transform.RotateAround(instance.transform.position, lastNormal, Random.Range(SceneData.minAngle, SceneData.maxAngle));
-                }
-            }
-            else
-            {
-                if (SceneData.randomizeRotation) instance.transform.Rotate(GetRandomAngle(), SceneData.space);
-                else instance.transform.Rotate(SceneData.rotation, SceneData.space);
-            }
-
-            if (SceneData.selectedGroup != null)
-            {
-                if (SceneData.selectedGroup.parent)
-                {
-                    instance.transform.SetParent(SceneData.selectedGroup.parent);
-                }
-                else
-                {
-                    Transform groupTransform = lastRoot.Find(SceneData.selectedGroup.name);
-                    if (groupTransform) instance.transform.parent = groupTransform;
-                    else
-                    {
-                        GameObject newParent = new(SceneData.selectedGroup.name);
-                        newParent.transform.SetParent(lastRoot);
-                        newParent.transform.localPosition = Vector3.zero;
-                        instance.transform.SetParent(newParent.transform);
-                        Undo.RegisterCreatedObjectUndo(newParent, "Instantiated object parent");
-                    }
-                }
-            }
-
-            Undo.RegisterCreatedObjectUndo(instance, "Instantiated object");
-            lastPlaced = instance;
-
-            Selection.activeGameObject = instance;
-        }
-
-        private void SetTargetPoint(Event evt)
-        {
-            root = null;
-            Camera cam = Camera.current;
-            if (cam != null)
-            {
-                Ray ray = HandleUtility.GUIPointToWorldRay(new(evt.mousePosition.x, evt.mousePosition.y));
-
-                if (Physics.Raycast(ray, out RaycastHit hit, Mathf.Infinity, SceneData.RayMask))
-                {
-                    root = hit.transform.root;
-                    hitPoint = SnapToCustomGrid(hit.point);
-                    hitNormal = hit.normal;
-                }
-                else
-                {
-                    hitPoint = SnapToCustomGrid(cam.ScreenToWorldPoint(new(evt.mousePosition.x, cam.pixelHeight - evt.mousePosition.y, 20)));
-                    hitNormal = Vector3.up;
+                    SceneData.Select(SceneData.selectedGroup.elements[index]);
+                    Repaint();
+                    SelectPrefab();
+                    CreatePreview(currentHit);
                 }
             }
         }
 
-        private void SetTargetVisualization()
-        {
-            if (!root) return;
-
-            Color oldColor = Handles.color;
-            Handles.color = new Color(1, 0, 0, .5f);
-            Handles.DrawSolidDisc(hitPoint, hitNormal, .25f);
-            Handles.color = oldColor;
-        }
-
-        private void AddRotation()
+        private void ChangeRotation()
         {
             Vector3 delta = GetAxisVector(sceneData.angleTab);
             SceneData.rotation += delta;
@@ -601,26 +546,173 @@ namespace RedeevEditor.Utilities
             if (SceneData.rotation.y > 360f) SceneData.rotation.y -= 360f;
             if (SceneData.rotation.z > 360f) SceneData.rotation.z -= 360f;
 
-            if (lastPlaced != null)
+            CreatePreview(currentHit);
+        }
+
+        #endregion
+
+        #region Preview
+
+        private void CreatePreview(HitInfo hit)
+        {
+            DestroyPreview();
+
+            if (selectedPrefab)
             {
-                lastPlaced.transform.Rotate(delta, SceneData.space);
+                preview = InstantiateObject(selectedPrefab, hit);
+                preview.hideFlags = HideFlags.HideAndDontSave;
             }
         }
 
-        private Vector3 GetRandomAngle()
+        private void DestroyPreview()
         {
-            return GetAxisVector(Random.Range(SceneData.minAngle, SceneData.maxAngle));
+            if (preview) DestroyImmediate(preview);
         }
 
-        private Vector3 GetAxisVector(float value)
+        private void DrawPreview()
         {
-            return SceneData.currentAxis switch
+            if (!preview) return;
+
+            if (currentHit != null)
             {
-                Axis.X => new Vector3(value, 0, 0),
-                Axis.Y => new Vector3(0, value, 0),
-                Axis.Z => new Vector3(0, 0, value),
-                _ => Vector3.zero,
-            };
+                preview.SetActive(true);
+                SetPosition(preview, currentHit);
+                SetRotation(preview, currentHit, false);
+            }
+            else
+            {
+                preview.SetActive(false);
+            }
+        }
+
+        #endregion
+
+        #region Selection
+
+        private void SelectRandomPrefab()
+        {
+            if (SceneData.selectedGroup != null && SceneData.chooseRandom)
+            {
+                SceneData.Select(SceneData.selectedGroup.elements[Random.Range(0, SceneData.selectedGroup.elements.Count)]);
+                Repaint();
+            }
+            if (SceneData.selected != null) SelectPrefab();
+        }
+
+        private void SelectPrefab()
+        {
+            if (SceneData.selected != null) selectedPrefab = SceneData.selected.go;
+        }
+
+        #endregion
+
+        #region Placing
+
+        private void PlaceGameObject()
+        {
+            if (!selectedPrefab) return;
+
+            GameObject instance = InstantiateObject(selectedPrefab);
+            if (!instance) return;
+
+            if (preview)
+            {
+                instance.transform.SetPositionAndRotation(preview.transform.position, preview.transform.rotation);
+                instance.transform.localScale = preview.transform.localScale;
+            }
+            else
+            {
+                SetScale(instance, selectedPrefab.transform.localScale);
+                SetPosition(instance, clickHit);
+                SetRotation(instance, clickHit);
+            }
+
+            SetParent(instance, clickHit);
+
+            Undo.RegisterCreatedObjectUndo(instance, "Instantiated object");
+
+            Selection.activeGameObject = instance;
+        }
+
+        private void SetParent(GameObject instance, HitInfo hit)
+        {
+            if (SceneData.selectedGroup != null && hit != null)
+            {
+                if (SceneData.selectedGroup.parent)
+                {
+                    instance.transform.SetParent(SceneData.selectedGroup.parent);
+                }
+                else if (hit.root)
+                {
+                    Transform groupTransform = hit.root.Find(SceneData.selectedGroup.name);
+                    if (groupTransform) instance.transform.parent = groupTransform;
+                    else
+                    {
+                        GameObject newParent = new(SceneData.selectedGroup.name);
+                        newParent.transform.SetParent(hit.root);
+                        newParent.transform.localPosition = Vector3.zero;
+                        instance.transform.SetParent(newParent.transform);
+                        Undo.RegisterCreatedObjectUndo(newParent, "Instantiated group object parent");
+                    }
+                }
+            }
+        }
+
+        private GameObject InstantiateObject(GameObject original)
+        {
+            if (!original) return null;
+
+            GameObject instance;
+            if (PrefabUtility.GetPrefabAssetType(original) == PrefabAssetType.NotAPrefab) instance = Instantiate(original);
+            else instance = PrefabUtility.InstantiatePrefab(original) as GameObject;
+
+            return instance;
+        }
+
+        private GameObject InstantiateObject(GameObject original, HitInfo hit)
+        {
+            if (hit == null) return null;
+
+            GameObject instance = InstantiateObject(original);
+            if (instance != null)
+            {
+                SetScale(instance, original.transform.localScale);
+                SetPosition(instance, hit);
+                SetRotation(instance, hit);
+            }
+
+            return instance;
+        }
+
+        private void SetPosition(GameObject instance, HitInfo hit)
+        {
+            instance.transform.position = hit.point + SceneData.offset;
+        }
+
+        private void SetRotation(GameObject instance, HitInfo hit, bool randomize = true)
+        {
+            if (SceneData.useNormals)
+            {
+                instance.transform.rotation = Quaternion.FromToRotation(GetAxisVector(1f), hit.normal);
+                if (SceneData.randomizeRotation && randomize)
+                {
+                    instance.transform.RotateAround(instance.transform.position, hit.normal, Random.Range(SceneData.minAngle, SceneData.maxAngle));
+                }
+            }
+            else if (randomize)
+            {
+                if (SceneData.randomizeRotation)
+                {
+                    instance.transform.Rotate(GetRandomAngle(), SceneData.space);
+                }
+                else instance.transform.Rotate(SceneData.rotation, SceneData.space);
+            }
+        }
+
+        private void SetScale(GameObject instance, Vector3 originalScale)
+        {
+            if (SceneData.randomizeScale) instance.transform.localScale = originalScale * Random.Range(SceneData.minScale, SceneData.maxScale);
+            else instance.transform.localScale = new(originalScale.x * SceneData.scale.x, originalScale.y * SceneData.scale.y, originalScale.z * SceneData.scale.z);
         }
 
         #endregion
@@ -631,15 +723,9 @@ namespace RedeevEditor.Utilities
         {
             return Mathf.Round(numToSnap / unitSize) * unitSize;
         }
-        private float SnapToHalfUnit(float unitSize, float numToSnap)
-        {
-            return Mathf.Floor(numToSnap / unitSize) + .5f * unitSize;
-        }
+
         private Vector3 SnapToCustomGrid(Vector3 positionToSnap)
         {
-            //		if(gridTransform.objectReferenceValue == null)
-            //			return Vector3.zero;
-
             float x = positionToSnap.x;
             float y = positionToSnap.y;
             float z = positionToSnap.z;
@@ -688,7 +774,7 @@ namespace RedeevEditor.Utilities
             return snappedPoint;
         }
 
-        #endregion
+        #endregion       
     }
 }
 #endif

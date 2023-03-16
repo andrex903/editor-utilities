@@ -64,7 +64,7 @@ namespace RedeevEditor.Utilities
         public float minAngle = 0f;
         public float maxAngle = 360f;
 
-        public bool useNormals = false;
+        public bool useNormals = false;       
 
         public bool snapX = false;
         public bool snapY = false;
