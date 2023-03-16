@@ -48,6 +48,8 @@ namespace RedeevEditor.Utilities
 
         private FastPlacerSceneData sceneData = null;
 
+        private List<Vector3> positions = new();
+
         private FastPlacerSceneData SceneData
         {
             get
@@ -109,18 +111,28 @@ namespace RedeevEditor.Utilities
 
         #region Generic
 
-        private void GetHitInformations(Event evt)
+        private HitInfo GetHitInformations(Event evt)
         {
             Ray ray = HandleUtility.GUIPointToWorldRay(new(evt.mousePosition.x, evt.mousePosition.y));
 
             if (Physics.Raycast(ray, out RaycastHit hit, Mathf.Infinity, SceneData.RayMask))
             {
-                currentHit = new(hit.transform.root, SnapToCustomGrid(hit.point), hit.normal);
+                return new(hit.transform.root, SnapToCustomGrid(hit.point), hit.normal);
             }
-            else
+
+            return null;
+        }
+
+        private HitInfo GetHitInformations(Vector3 point)
+        {
+            Ray ray = new Ray(point + Vector3.up * 10f, -Vector3.up);
+
+            if (Physics.Raycast(ray, out RaycastHit hit, Mathf.Infinity, SceneData.RayMask))
             {
-                currentHit = null;
+                return new(hit.transform.root, SnapToCustomGrid(hit.point), hit.normal);
             }
+
+            return null;
         }
 
         private void DrawTarget()
@@ -129,7 +141,7 @@ namespace RedeevEditor.Utilities
 
             Color oldColor = Handles.color;
             Handles.color = new Color(1, 0, 0, .5f);
-            Handles.DrawSolidDisc(currentHit.point, currentHit.normal, .25f);
+            Handles.DrawSolidDisc(currentHit.point, currentHit.normal, SceneData.brushSize);
             Handles.color = oldColor;
         }
 
@@ -149,6 +161,11 @@ namespace RedeevEditor.Utilities
             };
         }
 
+        private int CalculateNumber()
+        {
+            return Mathf.RoundToInt(SceneData.brushSize * SceneData.brushSize * SceneData.density * 2 * Mathf.PI);
+        }
+
         #endregion
 
         #region GUI
@@ -160,7 +177,7 @@ namespace RedeevEditor.Utilities
 
             if (!isActive || evt.alt) return;
 
-            GetHitInformations(evt);
+            currentHit = GetHitInformations(evt);
             if (SceneData.showPreview) DrawPreview();
             else DrawTarget();
 
@@ -192,9 +209,38 @@ namespace RedeevEditor.Utilities
             else if (evt.type == EventType.MouseDown && evt.button == 0)
             {
                 clickHit = currentHit;
-                if (clickHit != null) PlaceGameObject();
+                if (clickHit != null)
+                {
+                    if (SceneData.paintMode == PaintMode.Single)
+                    {
+                        PlaceGameObject();
+                    }
+                    else
+                    {
+                        Undo.IncrementCurrentGroup();
+                        Undo.SetCurrentGroupName("Instantiated objects");
+                        var undoGroupIndex = Undo.GetCurrentGroup();
+                        positions.Clear();
+                        int count = CalculateNumber();
+                        for (int i = 0; i < count; i++)
+                        {
+                            if (TryGetGoodPosition(out Vector3 goodPosition))
+                            {
+                                HitInfo hit = GetHitInformations(goodPosition);
+                                GameObject instance = InstantiateObject(selectedPrefab, hit);
+                                if (instance)
+                                {
+                                    SetParent(instance, clickHit);
+                                    Undo.RegisterCreatedObjectUndo(instance, string.Empty);
+                                }
+                            }
+                        }
 
-                if (SceneData.chooseRandom) SelectRandomPrefab();             
+                        Undo.CollapseUndoOperations(undoGroupIndex);
+                    }
+                }
+
+                if (SceneData.chooseRandom) SelectRandomPrefab();
                 CreatePreview(clickHit);
 
                 evt.Use();
@@ -203,6 +249,19 @@ namespace RedeevEditor.Utilities
             {
                 HandleUtility.AddDefaultControl(controlID);
             }
+        }
+
+        private bool TryGetGoodPosition(out Vector3 goodPosition)
+        {
+            Vector2 pos = Random.insideUnitCircle * SceneData.brushSize;
+            goodPosition = clickHit.point + new Vector3(pos.x, 0f, pos.y);
+            for (int i = 0; i < positions.Count; i++)
+            {
+                if (Vector3.Distance(positions[i], goodPosition) < SceneData.minDistance) return false;
+            }
+
+            positions.Add(goodPosition);
+            return true;
         }
 
         private void OnGUI()
@@ -254,6 +313,13 @@ namespace RedeevEditor.Utilities
                 SceneData.useNormals = EditorGUILayout.Toggle("Align with Normals", SceneData.useNormals);
                 SceneData.showPreview = EditorGUILayout.Toggle("Show Preview", SceneData.showPreview);
                 if (!SceneData.showPreview) DestroyPreview();
+                SceneData.paintMode = (PaintMode)EditorGUILayout.EnumPopup("Paint Mode", SceneData.paintMode);
+                if (SceneData.paintMode == PaintMode.Multi)
+                {
+                    SceneData.brushSize = EditorGUILayout.Slider("Brush Size", SceneData.brushSize, 0.25f, 5f);
+                    SceneData.density = EditorGUILayout.FloatField("Density", SceneData.density);
+                    SceneData.minDistance = EditorGUILayout.FloatField("Min Distance", SceneData.minDistance);
+                }
                 EditorGUI.indentLevel--;
             }
             EditorGUILayout.EndVertical();
@@ -638,6 +704,8 @@ namespace RedeevEditor.Utilities
 
         private void SetParent(GameObject instance, HitInfo hit)
         {
+            if (!instance) return;
+
             if (SceneData.selectedGroup != null && hit != null)
             {
                 if (SceneData.selectedGroup.parent)

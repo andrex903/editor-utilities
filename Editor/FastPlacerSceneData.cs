@@ -13,17 +13,7 @@ namespace RedeevEditor.Utilities
             public string name = "";
             public Transform parent = null;
             public List<Element> elements = new();
-            public bool isOpen = true;            
-
-            public GameObject RandomGameObject()
-            {
-                GameObject result = null;
-
-                Element random = elements[UnityEngine.Random.Range(0, elements.Count)];
-                if (random != null) result = random.go;
-
-                return result;
-            }
+            public bool isOpen = true; 
         }
 
         [Serializable]
@@ -68,6 +58,19 @@ namespace RedeevEditor.Utilities
 
         public bool showPreview = false;
 
+        public enum PaintMode
+        {
+            Single,
+            Multi
+        }
+
+        public PaintMode paintMode = PaintMode.Single;
+        public float brushSize = 0.25f;
+        public float density = 1f;
+        public float minDistance = 0f;
+
+        #region Snapping
+
         public bool snapX = false;
         public bool snapY = false;
         public bool snapZ = false;
@@ -78,6 +81,8 @@ namespace RedeevEditor.Utilities
         public float autoXPos = 0;
         public float autoYPos = 0;
         public float autoZPos = 0;
+
+        #endregion
 
         public int gridSize = 10;
         public bool drawXY = false;
@@ -91,6 +96,8 @@ namespace RedeevEditor.Utilities
         {
             if (!Application.isEditor) Destroy(gameObject);
         }
+
+        #region Selection
 
         public void Select(Element element)
         {
@@ -120,6 +127,10 @@ namespace RedeevEditor.Utilities
                 selectedGroup = null;
             }
         }
+
+        #endregion
+
+        #region Grid
 
         private void OnDrawGizmos()
         {
@@ -230,6 +241,8 @@ namespace RedeevEditor.Utilities
 
             Gizmos.color = oldCol;
         }
+
+        #endregion
     }
 }
 #endif
