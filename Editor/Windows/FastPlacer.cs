@@ -42,13 +42,15 @@ namespace RedeevEditor.Utilities
         private GameObject preview = null;
         private GameObject selectedPrefab = null;
 
+        private Vector3 lastRotation;
+
         private KeyValuePair<GameObject, Texture2D> currentPreview;
 
         private readonly int HASH = "FastPlacer".GetHashCode();
 
         private FastPlacerSceneData sceneData = null;
 
-        private List<Vector3> positions = new();
+        private readonly List<Vector3> positions = new();
 
         private FastPlacerSceneData SceneData
         {
@@ -161,9 +163,32 @@ namespace RedeevEditor.Utilities
             };
         }
 
+        private void Align(Transform transform, Vector3 target)
+        {
+            switch (SceneData.currentAxis)
+            {
+                case Axis.X:
+                    transform.right = target;
+                    break;
+                case Axis.Y:
+                    transform.up = target;
+                    break;
+                case Axis.Z:
+                    transform.forward = target;
+                    break;
+                default:
+                    break;
+            }
+        }
+
         private int CalculateNumber()
         {
             return Mathf.RoundToInt(SceneData.brushSize * SceneData.brushSize * SceneData.density * 2 * Mathf.PI);
+        }
+
+        private Space GetSpace()
+        {
+            return SceneData.useNormals ? Space.Self : SceneData.space;
         }
 
         #endregion
@@ -440,7 +465,7 @@ namespace RedeevEditor.Utilities
                 SceneData.offset = EditorGUILayout.Vector3Field("Position Offset", SceneData.offset);
                 EditorGUILayout.EndVertical();
                 EditorGUILayout.BeginVertical("Box");
-                SceneData.space = (Space)EditorGUILayout.EnumPopup("Space", SceneData.space);
+                if (!SceneData.useNormals) SceneData.space = (Space)EditorGUILayout.EnumPopup("Space", SceneData.space);
                 SceneData.currentAxis = (Axis)EditorGUILayout.EnumPopup("Axis", SceneData.currentAxis);
                 SceneData.angleTab = EditorGUILayout.FloatField("Rotation Delta", SceneData.angleTab);
                 SceneData.randomizeRotation = EditorGUILayout.Toggle("Randomize Rotation", SceneData.randomizeRotation);
@@ -645,7 +670,12 @@ namespace RedeevEditor.Utilities
             {
                 preview.SetActive(true);
                 SetPosition(preview, currentHit);
-                SetRotation(preview, currentHit, false);
+
+                if (SceneData.useNormals)
+                {
+                    SetNormal(preview, currentHit);
+                    preview.transform.Rotate(lastRotation, GetSpace());
+                }
             }
             else
             {
@@ -759,23 +789,27 @@ namespace RedeevEditor.Utilities
             instance.transform.position = hit.point + SceneData.offset;
         }
 
-        private void SetRotation(GameObject instance, HitInfo hit, bool randomize = true)
+        private void SetRotation(GameObject instance, HitInfo hit)
+        {
+            SetNormal(instance, hit);
+
+            if (SceneData.randomizeRotation)
+            {
+                lastRotation = GetRandomAngle();
+                instance.transform.Rotate(lastRotation, GetSpace());
+            }
+            else
+            {
+                lastRotation = sceneData.rotation;
+                instance.transform.Rotate(SceneData.rotation, GetSpace());
+            }
+        }
+
+        private void SetNormal(GameObject instance, HitInfo hit)
         {
             if (SceneData.useNormals)
             {
-                instance.transform.rotation = Quaternion.FromToRotation(GetAxisVector(1f), hit.normal);
-                if (SceneData.randomizeRotation && randomize)
-                {
-                    instance.transform.RotateAround(instance.transform.position, hit.normal, Random.Range(SceneData.minAngle, SceneData.maxAngle));
-                }
-            }
-            else if (randomize)
-            {
-                if (SceneData.randomizeRotation)
-                {
-                    instance.transform.Rotate(GetRandomAngle(), SceneData.space);
-                }
-                else instance.transform.Rotate(SceneData.rotation, SceneData.space);
+                Align(instance.transform, hit.normal);
             }
         }
 
