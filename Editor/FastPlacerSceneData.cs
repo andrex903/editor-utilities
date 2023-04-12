@@ -13,7 +13,7 @@ namespace RedeevEditor.Utilities
             public string name = "";
             public Transform parent = null;
             public List<Element> elements = new();
-            public bool isOpen = true; 
+            public bool isOpen = true;
         }
 
         [Serializable]
@@ -66,6 +66,7 @@ namespace RedeevEditor.Utilities
 
         public PaintMode paintMode = PaintMode.Single;
         public float brushSize = 0.25f;
+        public float BrushSize => paintMode == PaintMode.Single ? 0.25f : brushSize;
         public float density = 1f;
         public float minDistance = 0f;
 

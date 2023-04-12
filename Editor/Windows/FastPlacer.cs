@@ -36,6 +36,7 @@ namespace RedeevEditor.Utilities
         private bool snapFoldout = false;
         private bool gridFoldout = false;
         private bool placingOptionsFoldout = false;
+        private bool groupsFoldout = false;
 
         private Vector2 scrollPos = Vector2.zero;
 
@@ -47,6 +48,11 @@ namespace RedeevEditor.Utilities
         private KeyValuePair<GameObject, Texture2D> currentPreview;
 
         private readonly int HASH = "FastPlacer".GetHashCode();
+        private const string CREATE_ICON = "d_Toolbar Plus";
+        private const string CREATE_GROUP_ICON = "Add-Available";
+        private const string GROUP_ICON = "d_FolderEmpty Icon";
+        private const string ACTIVE_GROUP_ICON = "d_Folder Icon";
+        private const string DELETE_ICON = "TreeEditor.Trash";
 
         private FastPlacerSceneData sceneData = null;
 
@@ -143,7 +149,7 @@ namespace RedeevEditor.Utilities
 
             Color oldColor = Handles.color;
             Handles.color = new Color(1, 0, 0, .5f);
-            Handles.DrawSolidDisc(currentHit.point, currentHit.normal, SceneData.brushSize);
+            Handles.DrawSolidDisc(currentHit.point, currentHit.normal, SceneData.BrushSize);
             Handles.color = oldColor;
         }
 
@@ -203,7 +209,7 @@ namespace RedeevEditor.Utilities
             if (!isActive || evt.alt) return;
 
             currentHit = GetHitInformations(evt);
-            if (SceneData.showPreview) DrawPreview();
+            if (SceneData.showPreview && SceneData.paintMode == PaintMode.Single) DrawPreview();
             else DrawTarget();
 
             if (evt.GetTypeForControl(controlID) == EventType.KeyDown)
@@ -303,7 +309,7 @@ namespace RedeevEditor.Utilities
             Color oldColor = GUI.backgroundColor;
             GUI.backgroundColor = isActive ? Color.red : Color.green;
 
-            if (GUILayout.Button(isActive ? "Stop" : "Paint", GUILayout.Height(30)))
+            if (GUILayout.Button(new GUIContent(isActive ? " Stop" : " Paint", EditorGUIUtility.IconContent("d_Grid.PaintTool").image), GUILayout.Height(25f)))
             {
                 SetActive(!isActive);
             }
@@ -329,14 +335,17 @@ namespace RedeevEditor.Utilities
 
         private void PlacingOptionsGUI()
         {
-            EditorGUILayout.BeginVertical("Box");
+            EditorGUILayout.BeginVertical("HelpBox");
             if (placingOptionsFoldout = EditorGUILayout.Foldout(placingOptionsFoldout, "Placing Options"))
             {
                 EditorGUI.indentLevel++;
+                SceneData.chooseRandom = EditorGUILayout.Toggle("Randomize Selection", SceneData.chooseRandom);
                 LayerMask tempMask = EditorGUILayout.MaskField("Raycast Mask", InternalEditorUtility.LayerMaskToConcatenatedLayersMask(SceneData.RayMask), InternalEditorUtility.layers);
                 SceneData.RayMask = InternalEditorUtility.ConcatenatedLayersMaskToLayerMask(tempMask);
                 SceneData.useNormals = EditorGUILayout.Toggle("Align with Normals", SceneData.useNormals);
+                if (SceneData.paintMode == PaintMode.Multi) GUI.enabled = false;
                 SceneData.showPreview = EditorGUILayout.Toggle("Show Preview", SceneData.showPreview);
+                GUI.enabled = true;
                 if (!SceneData.showPreview) DestroyPreview();
                 SceneData.paintMode = (PaintMode)EditorGUILayout.EnumPopup("Paint Mode", SceneData.paintMode);
                 if (SceneData.paintMode == PaintMode.Multi)
@@ -352,64 +361,66 @@ namespace RedeevEditor.Utilities
 
         private void GroupsGUI()
         {
-            EditorGUILayout.BeginVertical("Box");
+            EditorGUILayout.BeginVertical("HelpBox");
 
-            EditorGUILayout.LabelField("Groups:", EditorStyles.boldLabel);
-            SceneData.chooseRandom = EditorGUILayout.Toggle("Randomize Selection", SceneData.chooseRandom);
-
-            for (int i = 0; i < SceneData.groups.Count; i++)
+            if (groupsFoldout = EditorGUILayout.Foldout(groupsFoldout, "Groups"))
             {
-                EditorGUILayout.BeginVertical("Box");
-                if (SceneData.groups[i].name.Equals(string.Empty)) SceneData.groups[i].name = "Group" + i;
-                string title = (SceneData.selectedGroup == SceneData.groups[i]) ? SceneData.groups[i].name + " (Active)" : SceneData.groups[i].name;
-
-                if (SceneData.groups[i].isOpen = EditorGUILayout.Foldout(SceneData.groups[i].isOpen, title, EditorStyles.foldout))
+                for (int i = 0; i < SceneData.groups.Count; i++)
                 {
-                    GUILayout.BeginVertical();
-
-                    if (SceneData.selectedGroup != SceneData.groups[i])
+                    EditorGUILayout.BeginVertical("Box");
+                    if (SceneData.groups[i].name.Equals(string.Empty)) SceneData.groups[i].name = "Group" + i;
+                    string title = SceneData.groups[i].name;
+                    string groupIcon = (SceneData.selectedGroup == SceneData.groups[i]) ? ACTIVE_GROUP_ICON : GROUP_ICON;
+                    if (SceneData.groups[i].isOpen = EditorGUILayout.Foldout(SceneData.groups[i].isOpen, new GUIContent(title, EditorGUIUtility.IconContent(groupIcon).image), EditorStyles.foldout))
                     {
-                        if (GUILayout.Button("Activate")) SceneData.selectedGroup = SceneData.groups[i];
-                    }
-                    else
-                    {
-                        Color oldColor = GUI.backgroundColor;
-                        GUI.backgroundColor = Color.cyan;
-                        GUILayout.Button("Active");
-                        GUI.backgroundColor = oldColor;
-                    }
+                        GUILayout.BeginVertical();
 
-                    GUILayout.BeginHorizontal();
-                    SceneData.groups[i].name = EditorGUILayout.TextField(SceneData.groups[i].name);
-                    if (SceneData.groups[i].name.Equals(string.Empty)) SceneData.groups[i].name = "Group " + i;
+                        if (SceneData.selectedGroup != SceneData.groups[i])
+                        {
+                            if (GUILayout.Button("Activate"))
+                            {
+                                SceneData.Deselect();
+                                selectedPrefab = null;
+                                SceneData.selectedGroup = SceneData.groups[i];
+                            }
+                        }
+                        else
+                        {
+                            Color oldColor = GUI.backgroundColor;
+                            GUI.backgroundColor = Color.cyan;
+                            GUILayout.Button("Active");
+                            GUI.backgroundColor = oldColor;
+                        }
 
-                    if (GUILayout.Button("Remove Group"))
-                    {
-                        if (SceneData.groups[i] == SceneData.selectedGroup) SceneData.Deselect();
-                        SceneData.groups.RemoveAt(i);
+                        GUILayout.BeginHorizontal();
+                        SceneData.groups[i].name = EditorGUILayout.TextField("Name", SceneData.groups[i].name);
+                        if (SceneData.groups[i].name.Equals(string.Empty)) SceneData.groups[i].name = "Group " + i;
+
+                        if (EditorUtilityGUI.IconButton(DELETE_ICON, 30f))
+                        {
+                            if (EditorUtility.DisplayDialog("Group Deletion", "Are you sure to delete this group?", "Confirm", "Cancel"))
+                            {
+                                if (SceneData.groups[i] == SceneData.selectedGroup) SceneData.Deselect();
+                                SceneData.groups.RemoveAt(i);
+                                GUILayout.EndHorizontal();
+                                EditorGUILayout.EndVertical();
+                                EditorGUILayout.EndVertical();
+                                break;
+                            }
+                        }
                         GUILayout.EndHorizontal();
-                        EditorGUILayout.EndVertical();
-                        EditorGUILayout.EndVertical();
-                        break;
+
+                        SceneData.groups[i].parent = EditorGUILayout.ObjectField("Container", SceneData.groups[i].parent, typeof(Transform), true) as Transform;
+
+                        GroupElementsGUI(SceneData.groups[i]);
+
+                        GUILayout.EndVertical();
                     }
-                    GUILayout.EndHorizontal();
-
-                    SceneData.groups[i].parent = EditorGUILayout.ObjectField("Container", SceneData.groups[i].parent, typeof(Transform), true) as Transform;
-
-                    GroupElementsGUI(SceneData.groups[i]);
-
-                    if (GUILayout.Button("+"))
-                    {
-                        SceneData.groups[i].elements.Add(new Element());
-                    }
-
-                    GUILayout.EndVertical();
+                    EditorGUILayout.EndVertical();
                 }
-                EditorGUILayout.EndVertical();
+
+                if (GUILayout.Button(EditorGUIUtility.IconContent(CREATE_GROUP_ICON))) SceneData.groups.Add(new Group());
             }
-
-            if (GUILayout.Button("Create Group")) SceneData.groups.Add(new Group());
-
             EditorGUILayout.EndVertical();
         }
 
@@ -417,10 +428,11 @@ namespace RedeevEditor.Utilities
         {
             Rect rect = EditorGUILayout.BeginVertical("Box");
 
-            EditorGUILayout.LabelField("GameObjects:", EditorStyles.boldLabel);
-
-            EditorGUILayout.Space(1);
-
+            EditorGUILayout.Space(1f);
+            if (group.elements.Count == 0)
+            {
+                EditorGUILayout.LabelField("Add or drag an object here", EditorStyles.centeredGreyMiniLabel, GUILayout.Height(20f));
+            }
             foreach (var element in group.elements)
             {
                 if (SceneData.selected == element && !element.go)
@@ -433,12 +445,16 @@ namespace RedeevEditor.Utilities
                 GUI.enabled = element.go && !SceneData.chooseRandom;
                 element.isSelected = GUILayout.Toggle(element.isSelected, "", GUILayout.Width(20));
                 GUI.enabled = oldEnabled;
-                if (element.isSelected) SceneData.Select(element);
+                if (element.isSelected)
+                {
+                    SceneData.Select(element);
+                    SelectPrefab();
+                }
                 else if (sceneData.selected == element) SceneData.Deselect();
 
                 element.go = EditorGUILayout.ObjectField(element.go, typeof(GameObject), true) as GameObject;
 
-                if (GUILayout.Button("-", GUILayout.Width(20)))
+                if (EditorUtilityGUI.IconButton(DELETE_ICON, 20f))
                 {
                     group.elements.Remove(element);
                     EditorGUILayout.EndHorizontal();
@@ -446,6 +462,12 @@ namespace RedeevEditor.Utilities
                     break;
                 }
                 EditorGUILayout.EndHorizontal();
+            }
+
+            EditorGUILayout.Space(1f);
+            if (GUILayout.Button(EditorGUIUtility.IconContent(CREATE_ICON)))
+            {
+                group.elements.Add(new Element());
             }
             EditorGUILayout.EndVertical();
 
@@ -457,7 +479,7 @@ namespace RedeevEditor.Utilities
 
         private void OffsetRoationAndScaleGUI()
         {
-            EditorGUILayout.BeginVertical("Box");
+            EditorGUILayout.BeginVertical("HelpBox");
             if (offsetFoldout = EditorGUILayout.Foldout(offsetFoldout, "Transform"))
             {
                 EditorGUI.indentLevel++;
@@ -500,7 +522,7 @@ namespace RedeevEditor.Utilities
 
         private void GridGUI()
         {
-            EditorGUILayout.BeginVertical("Box");
+            EditorGUILayout.BeginVertical("HelpBox");
             if (gridFoldout = EditorGUILayout.Foldout(gridFoldout, "Grid"))
             {
                 GUILayout.BeginHorizontal();
@@ -522,7 +544,7 @@ namespace RedeevEditor.Utilities
 
         private void SnappingGUI()
         {
-            EditorGUILayout.BeginVertical("Box");
+            EditorGUILayout.BeginVertical("HelpBox");
             if (snapFoldout = EditorGUILayout.Foldout(snapFoldout, "Snapping"))
             {
                 bool oldEnabled = GUI.enabled;
@@ -584,7 +606,7 @@ namespace RedeevEditor.Utilities
 
         private void MeshPreviewGUI()
         {
-            EditorGUILayout.BeginVertical("Box");
+            EditorGUILayout.BeginVertical("HelpBox");
             if (previewFoldout = EditorGUILayout.Foldout(previewFoldout, $"Preview"))
             {
                 Rect rect = GUILayoutUtility.GetRect(position.width * 0.3f, position.width * 0.3f);
@@ -708,7 +730,7 @@ namespace RedeevEditor.Utilities
 
         private void PlaceGameObject()
         {
-            if (!selectedPrefab) return;
+            if (!selectedPrefab || SceneData.selectedGroup == null) return;
 
             GameObject instance = InstantiateObject(selectedPrefab);
             if (!instance) return;

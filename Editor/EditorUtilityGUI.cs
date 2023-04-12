@@ -108,6 +108,24 @@ namespace RedeevEditor.Utilities
                     break;
             }
         }
+
+        #region Icons
+
+        public static bool IconButton(string iconName, float width, float heigth)
+        {
+            Vector2 oldSize = EditorGUIUtility.GetIconSize();
+            EditorGUIUtility.SetIconSize(new Vector2(heigth, heigth) * 0.7f);
+            bool value = GUILayout.Button(EditorGUIUtility.IconContent(iconName), GUILayout.Width(width), GUILayout.Height(heigth));
+            EditorGUIUtility.SetIconSize(oldSize);
+            return value;
+        }
+
+        public static bool IconButton(string iconName, float width)
+        {
+            return IconButton(iconName, width, EditorGUIUtility.singleLineHeight);
+        }
+
+        #endregion
     }
 }
 #endif
