@@ -15,13 +15,20 @@ namespace RedeevEditor.Utilities
         {
             if (GUILayout.Button(EditorGUIUtility.IconContent("d_GridAxisY")))
             {
-                if (Selection.objects.Length > 0)
+                for (int i = 0; i < Selection.objects.Length; i++)
                 {
-                    var selected = Selection.objects[0];
+                    var selected = Selection.objects[i];
                     if (selected is GameObject g)
                     {
                         RaycastHit[] hits = Physics.RaycastAll(g.transform.position + Vector3.up * 100f, -Vector3.up, 1000f);
-                        if (hits.Length > 0) g.transform.position = hits[0].point;
+                        if (hits.Length > 0)
+                        {
+                            if (hits[0].transform == g.transform)
+                            {
+                                if (hits.Length > 1) g.transform.position = hits[1].point;
+                            }
+                            else g.transform.position = hits[0].point;
+                        }
                     }
                 }
             }
