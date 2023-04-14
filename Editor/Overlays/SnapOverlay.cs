@@ -25,14 +25,19 @@ namespace RedeevEditor.Utilities
                         {
                             if (hits[0].transform == g.transform)
                             {
-                                if (hits.Length > 1) g.transform.position = hits[1].point;
+                                if (hits.Length > 1) SetPostion(g.transform, hits[1].point);
                             }
-                            else g.transform.position = hits[0].point;
-                            EditorUtility.SetDirty(g.transform);
+                            else SetPostion(g.transform, hits[0].point);
                         }
                     }
                 }
             }
+        }
+
+        private void SetPostion(Transform transform, Vector3 position)
+        {
+            Undo.RecordObject(transform, "Transform snapped");
+            transform.position = position;
         }
     }
 }
