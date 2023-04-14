@@ -28,6 +28,7 @@ namespace RedeevEditor.Utilities
                                 if (hits.Length > 1) g.transform.position = hits[1].point;
                             }
                             else g.transform.position = hits[0].point;
+                            EditorUtility.SetDirty(g.transform);
                         }
                     }
                 }
