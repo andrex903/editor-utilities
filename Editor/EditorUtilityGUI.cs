@@ -17,7 +17,7 @@ namespace RedeevEditor.Utilities
         private static void ClearCachedListsOnReload()
         {
             ClearCachedLists();
-        }        
+        }
 
         public static ReorderableList GetOrCreateCachedList(SerializedProperty property, params string[] propertyNames)
         {
@@ -111,18 +111,20 @@ namespace RedeevEditor.Utilities
 
         #region Icons
 
-        public static bool IconButton(string iconName, float width, float heigth)
+        public static bool IconButton(string iconName, float width, float heigth, GUIStyle style = null)
         {
             Vector2 oldSize = EditorGUIUtility.GetIconSize();
             EditorGUIUtility.SetIconSize(new Vector2(heigth, heigth) * 0.7f);
-            bool value = GUILayout.Button(EditorGUIUtility.IconContent(iconName), GUILayout.Width(width), GUILayout.Height(heigth));
+            bool value = false;
+            if (style != null) value = GUILayout.Button(EditorGUIUtility.IconContent(iconName), style, GUILayout.Width(width), GUILayout.Height(heigth));
+            else value = GUILayout.Button(EditorGUIUtility.IconContent(iconName), GUILayout.Width(width), GUILayout.Height(heigth));
             EditorGUIUtility.SetIconSize(oldSize);
             return value;
         }
 
-        public static bool IconButton(string iconName, float width)
+        public static bool IconButton(string iconName, float width, GUIStyle style = null)
         {
-            return IconButton(iconName, width, EditorGUIUtility.singleLineHeight);
+            return IconButton(iconName, width, EditorGUIUtility.singleLineHeight, style);
         }
 
         #endregion
