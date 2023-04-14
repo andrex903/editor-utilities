@@ -15,7 +15,7 @@ namespace RedeevEditor.Utilities
         private static void OnToolbarGUI()
         {
             GUILayout.Space(5f);
-            if (EditorUtilityGUI.IconButton("BodySilhouette", 30f, EditorStyles.toolbarButton))
+            if (EditorUtilityGUI.IconButton("BodySilhouette", 30f, EditorStyles.toolbarButton, "Select Player"))
             {
                 GameObject player = GameObject.FindGameObjectWithTag("Player");
                 if (player)
@@ -23,7 +23,7 @@ namespace RedeevEditor.Utilities
                     Selection.activeGameObject = player;
                 }
             }
-            if (EditorUtilityGUI.IconButton("d_Search Icon", 30f, EditorStyles.toolbarButton))
+            if (EditorUtilityGUI.IconButton("d_Search Icon", 30f, EditorStyles.toolbarButton, "Center on Player"))
             {
                 GameObject player = GameObject.FindGameObjectWithTag("Player");
                 if (player)

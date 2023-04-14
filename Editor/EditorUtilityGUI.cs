@@ -111,20 +111,25 @@ namespace RedeevEditor.Utilities
 
         #region Icons
 
-        public static bool IconButton(string iconName, float width, float heigth, GUIStyle style = null)
+        public static bool IconButton(string iconName, float width, float heigth, GUIStyle style = null, string tooltip = "")
         {
             Vector2 oldSize = EditorGUIUtility.GetIconSize();
-            EditorGUIUtility.SetIconSize(new Vector2(heigth, heigth) * 0.7f);
-            bool value = false;
-            if (style != null) value = GUILayout.Button(EditorGUIUtility.IconContent(iconName), style, GUILayout.Width(width), GUILayout.Height(heigth));
-            else value = GUILayout.Button(EditorGUIUtility.IconContent(iconName), GUILayout.Width(width), GUILayout.Height(heigth));
+            EditorGUIUtility.SetIconSize(new Vector2(heigth, heigth) * 0.75f);
+            
+            GUIContent content = EditorGUIUtility.IconContent(iconName);
+            if (!string.IsNullOrEmpty(tooltip)) content.tooltip = tooltip;
+
+            bool value;
+            if (style != null) value = GUILayout.Button(content, style, GUILayout.Width(width), GUILayout.Height(heigth));
+            else value = GUILayout.Button(content, GUILayout.Width(width), GUILayout.Height(heigth));            
+
             EditorGUIUtility.SetIconSize(oldSize);
             return value;
         }
 
-        public static bool IconButton(string iconName, float width, GUIStyle style = null)
+        public static bool IconButton(string iconName, float width, GUIStyle style = null, string tooltip = "")
         {
-            return IconButton(iconName, width, EditorGUIUtility.singleLineHeight, style);
+            return IconButton(iconName, width, EditorGUIUtility.singleLineHeight, style, tooltip);
         }
 
         #endregion
