@@ -10,7 +10,7 @@ namespace RedeevEditor.Utilities
         private static readonly string SOURCE_EXT = ".fbx";
         private static readonly string TARGET_EXT = ".asset";
 
-        [MenuItem("Assets/Extract Meshes", validate = true)]
+        [MenuItem("Assets/Redeev/Extract Meshes", validate = true)]
         private static bool ExtractMeshesMenuItemValidate()
         {
             for (int i = 0; i < Selection.objects.Length; i++)
@@ -20,7 +20,7 @@ namespace RedeevEditor.Utilities
             return true;
         }
 
-        [MenuItem("Assets/Extract Meshes")]
+        [MenuItem("Assets/Redeev/Extract Meshes")]
         private static void ExtractMeshesMenuItem()
         {
             EditorUtility.DisplayProgressBar(TITLE, "", 0);
