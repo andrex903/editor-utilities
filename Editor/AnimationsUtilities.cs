@@ -77,10 +77,10 @@ namespace RedeevEditor.Utilities
 
         private static void SetupModelImporter(ModelImporter modelImporter, string name)
         {
-            ModelImporterClipAnimation[] clipAnimations = modelImporter.defaultClipAnimations;
+            ModelImporterClipAnimation[] clipAnimations = modelImporter.clipAnimations;
 
             for (int i = 0; i < clipAnimations.Length; i++)
-            {
+            {                
                 clipAnimations[i].name = name;
                 if (name.Contains("Walk") || name.Contains("Idle") || name.Contains("Run")) clipAnimations[i].loopTime = true;
                 //if (name.Contains("Attack")) clipAnimations[i].events = new AnimationEvent[1] { new AnimationEvent() { functionName = "InstanceEvent", time = 0.5f } };
