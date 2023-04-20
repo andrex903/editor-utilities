@@ -48,8 +48,8 @@ namespace RedeevEditor.Utilities
             }
         }
 
-        [MenuItem("Assets/Redeev/Rename Animations", validate = true)]
-        private static bool RenameValidation()
+        [MenuItem("Assets/Redeev/Setup Animation", validate = true)]
+        private static bool SetupAnimationValidation()
         {
             foreach (var item in Selection.objects)
             {
@@ -59,8 +59,8 @@ namespace RedeevEditor.Utilities
             return Selection.objects.Length > 0;
         }
 
-        [MenuItem("Assets/Redeev/Rename Animations")]
-        private static void Rename()
+        [MenuItem("Assets/Redeev/Setup Animation")]
+        private static void SetupAnimation()
         {
             foreach (var item in Selection.objects)
             {
@@ -70,12 +70,12 @@ namespace RedeevEditor.Utilities
                     var fileName = Path.GetFileNameWithoutExtension(path);
                     var importer = (ModelImporter)AssetImporter.GetAtPath(path);
 
-                    RenameAndImport(importer, fileName);
+                    SetupModelImporter(importer, fileName);
                 }
             }
         }
 
-        private static void RenameAndImport(ModelImporter modelImporter, string name)
+        private static void SetupModelImporter(ModelImporter modelImporter, string name)
         {
             ModelImporterClipAnimation[] clipAnimations = modelImporter.defaultClipAnimations;
 
