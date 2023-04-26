@@ -77,7 +77,7 @@ namespace RedeevEditor.Utilities
 
         private static void SetupModelImporter(ModelImporter modelImporter, string name)
         {
-            ModelImporterClipAnimation[] clipAnimations = modelImporter.clipAnimations;
+            ModelImporterClipAnimation[] clipAnimations = modelImporter.defaultClipAnimations;
 
             for (int i = 0; i < clipAnimations.Length; i++)
             {                
