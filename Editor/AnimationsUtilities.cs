@@ -8,8 +8,8 @@ namespace RedeevEditor.Utilities
 {
     public static class AnimationsUtilities
     {
-        [MenuItem("Assets/Redeev/Create Triggers", validate = true)]
-        private static bool CreateTriggersValidation()
+        [MenuItem("Assets/Redeev/Setup Animator Controller", validate = true)]
+        private static bool SetupAnimatorControllerValidation()
         {
             if (Selection.objects.Length == 1)
             {
@@ -18,8 +18,8 @@ namespace RedeevEditor.Utilities
             return false;
         }
 
-        [MenuItem("Assets/Redeev/Create Triggers")]
-        private static void CreateTriggers()
+        [MenuItem("Assets/Redeev/Setup Animator Controller")]
+        private static void SetupAnimatorController()
         {
             if (!EditorUtility.DisplayDialog("Warning", "This will delete all the current parameters and transitions", "Continue", "Cancel")) return;
 
