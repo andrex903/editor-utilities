@@ -70,21 +70,31 @@ namespace RedeevEditor.Utilities
                     var fileName = Path.GetFileNameWithoutExtension(path);
                     var importer = (ModelImporter)AssetImporter.GetAtPath(path);
 
+                    SetupModelImporterNames(importer, fileName);
                     SetupModelImporter(importer, fileName);
                 }
             }
         }
 
-        private static void SetupModelImporter(ModelImporter modelImporter, string name)
+        private static void SetupModelImporterNames(ModelImporter modelImporter, string name)
         {
             ModelImporterClipAnimation[] clipAnimations = modelImporter.defaultClipAnimations;
+            for (int i = 0; i < clipAnimations.Length; i++)
+            {
+                clipAnimations[i].name = name;
+            }
+            modelImporter.clipAnimations = clipAnimations;
+            modelImporter.SaveAndReimport();
+        }
+
+        private static void SetupModelImporter(ModelImporter modelImporter, string name)
+        {
+            ModelImporterClipAnimation[] clipAnimations = modelImporter.clipAnimations;  
 
             for (int i = 0; i < clipAnimations.Length; i++)
-            {                
-                clipAnimations[i].name = name;
+            {
                 if (name.Contains("Walk") || name.Contains("Idle") || name.Contains("Run")) clipAnimations[i].loopTime = true;
                 //if (name.Contains("Attack")) clipAnimations[i].events = new AnimationEvent[1] { new AnimationEvent() { functionName = "InstanceEvent", time = 0.5f } };
-
                 clipAnimations[i].keepOriginalPositionY = true;
                 clipAnimations[i].keepOriginalPositionXZ = true;
                 clipAnimations[i].keepOriginalOrientation = true;
@@ -92,7 +102,6 @@ namespace RedeevEditor.Utilities
                 clipAnimations[i].lockRootPositionXZ = true;
                 clipAnimations[i].lockRootRotation = true;
             }
-
             modelImporter.clipAnimations = clipAnimations;
             modelImporter.SaveAndReimport();
         }
