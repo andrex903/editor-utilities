@@ -38,13 +38,26 @@ namespace RedeevEditor.Utilities
             }
             controller.layers[0].stateMachine.states = childStates;
 
+            AnimatorState idleState = null;
+
             foreach (var state in controller.layers[0].stateMachine.states)
             {
+                if (state.state.name.Contains("Idle")) idleState = state.state;               
                 controller.AddParameter(state.state.name, AnimatorControllerParameterType.Trigger);
                 var transition = controller.layers[0].stateMachine.AddAnyStateTransition(state.state);
                 transition.AddCondition(AnimatorConditionMode.If, 0, state.state.name);
                 transition.canTransitionToSelf = false;
-                transition.duration = 0;
+                transition.duration = 0f;
+            }
+
+            if (idleState != null)
+            {
+                foreach (var state in controller.layers[0].stateMachine.states)
+                {
+                    if (state.state == idleState) continue;
+                    var transition = state.state.AddTransition(idleState);
+                    transition.hasExitTime = true;
+                }
             }
         }
 
@@ -89,7 +102,7 @@ namespace RedeevEditor.Utilities
 
         private static void SetupModelImporter(ModelImporter modelImporter, string name)
         {
-            ModelImporterClipAnimation[] clipAnimations = modelImporter.clipAnimations;  
+            ModelImporterClipAnimation[] clipAnimations = modelImporter.clipAnimations;
 
             for (int i = 0; i < clipAnimations.Length; i++)
             {
