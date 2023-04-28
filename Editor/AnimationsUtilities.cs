@@ -54,7 +54,7 @@ namespace RedeevEditor.Utilities
             {
                 foreach (var state in controller.layers[0].stateMachine.states)
                 {
-                    if (state.state == idleState) continue;
+                    if (state.state == idleState || state.state.motion.isLooping) continue;
                     var transition = state.state.AddTransition(idleState);
                     transition.hasExitTime = true;
                     transition.exitTime = 0.8f;
