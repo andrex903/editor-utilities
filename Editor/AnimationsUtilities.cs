@@ -57,8 +57,8 @@ namespace RedeevEditor.Utilities
                     if (state.state == idleState || state.state.motion.isLooping) continue;
                     var transition = state.state.AddTransition(idleState);
                     transition.hasExitTime = true;
-                    transition.exitTime = 0.8f;
-                    transition.duration = 0.2f;
+                    transition.exitTime = 1f;
+                    transition.duration = 0f;
                 }
             }
         }
