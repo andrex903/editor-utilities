@@ -21,6 +21,12 @@ namespace RedeevEditor
     {
         public override void OnGUI(Rect position, SerializedProperty property, GUIContent label)
         {
+            if (property.hasMultipleDifferentValues)
+            {
+                EditorGUI.LabelField(position, "Multi selection is not allowed", EditorStyles.centeredGreyMiniLabel);
+                return;
+            }
+
             EnumSingleAttribute singleAttribute = (EnumSingleAttribute)attribute;
 
             List<GUIContent> displayTexts = new();
