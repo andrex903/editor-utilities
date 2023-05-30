@@ -11,8 +11,8 @@ namespace RedeevEditor.Utilities
         private enum Mode
         {
             Pivot,
-            Center,
-            Border
+            BoundCenter,
+            BoundBorder
         }
 
         public enum BoundsSource
@@ -54,17 +54,19 @@ namespace RedeevEditor.Utilities
 
         private void OnGUI()
         {
-            EditorGUILayout.BeginVertical("Box");
+            EditorGUILayout.Space(5);
+            EditorGUILayout.BeginVertical("HelpBox");
+            EditorGUILayout.Space(2);
             mode = (Mode)EditorGUILayout.EnumPopup("Mode", mode);
             if (mode != Mode.Pivot)
             {
-                source = (BoundsSource)EditorGUILayout.EnumPopup("Source", source);
+                source = (BoundsSource)EditorGUILayout.EnumPopup("Bound Source", source);
                 if (source == BoundsSource.CustomChild) childName = EditorGUILayout.TextField("Child Name", childName);
             }
             axis = (Axis)EditorGUILayout.EnumPopup("Direction", axis);
-            if (mode != Mode.Border)
+            if (mode != Mode.BoundBorder)
             {
-                rows = Mathf.Max(1, EditorGUILayout.IntField("Max Lenght", rows));
+                rows = Mathf.Max(1, EditorGUILayout.IntField("Max Length", rows));
                 center = (CenterType)EditorGUILayout.EnumPopup("Center", center);
             }
             float label = EditorGUIUtility.labelWidth;
@@ -76,7 +78,8 @@ namespace RedeevEditor.Utilities
             EditorGUIUtility.labelWidth = label;
             GUI.enabled = selectionCount > 1;
             EditorGUILayout.Space(5);
-            if (GUILayout.Button($"Align ({selectionCount})", GUILayout.Height(30f))) Align();
+            if (GUILayout.Button(new GUIContent($" Align ({selectionCount})", EditorGUIUtility.IconContent("align_vertically_center_active").image), GUILayout.Height(30f))) Align();
+            EditorGUILayout.Space(2);
             EditorGUILayout.EndVertical();
         }
 
@@ -110,7 +113,7 @@ namespace RedeevEditor.Utilities
 
             for (int i = 0; i < gameObjects.Count; i++)
             {
-                if (mode == Mode.Border)
+                if (mode == Mode.BoundBorder)
                 {
                     if (i == 0)
                     {
@@ -131,7 +134,7 @@ namespace RedeevEditor.Utilities
 
             void Apply(int goIndex, Vector3 position)
             {
-                if (mode == Mode.Center || mode == Mode.Border)
+                if (mode == Mode.BoundCenter || mode == Mode.BoundBorder)
                 {
                     Vector3 realCenter = GetBoundCenter(gameObjects[goIndex]);
                     position += (gameObjects[goIndex].transform.position - realCenter);
