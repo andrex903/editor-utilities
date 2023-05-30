@@ -8,14 +8,42 @@ namespace RedeevEditor.Utilities
 {
     public class FastAlign : EditorWindow
     {
+        private enum Mode
+        {
+            Pivot,
+            Center,
+            Border
+        }
+
+        public enum BoundsSource
+        {
+            AllChildren,
+            FirstChild,
+            CustomChild
+        }
+
+        public enum CenterType
+        {
+            LocalZero,
+            Barycenter,
+            First,
+            WorldZero
+        }
+
         private enum Axis
         {
             X,
             Z
         }
-        private Axis axis = Axis.X;       
-        private int number = 1;
-        private Vector2 distance = Vector2.one;
+
+        private Mode mode = Mode.Pivot;
+        private BoundsSource source = BoundsSource.AllChildren;
+        private string childName = string.Empty;
+        private Axis axis = Axis.X;
+        private CenterType center = CenterType.Barycenter;
+        private int rows = 1;
+        private float spacingX = 1f;
+        private float spacingZ = 1f;
 
         private int selectionCount = 0;
         private int lastSelectionCount = -1;
@@ -29,17 +57,34 @@ namespace RedeevEditor.Utilities
         private void OnGUI()
         {
             EditorGUILayout.BeginVertical("Box");
+            mode = (Mode)EditorGUILayout.EnumPopup("Mode", mode);
+            if (mode != Mode.Pivot)
+            {
+                source = (BoundsSource)EditorGUILayout.EnumPopup("Source", source);
+                if (source == BoundsSource.CustomChild) childName = EditorGUILayout.TextField("Child Name", childName);
+            }
             axis = (Axis)EditorGUILayout.EnumPopup("Direction", axis);
-            number = EditorGUILayout.IntField("Rows", number);
-            distance = EditorGUILayout.Vector2Field("Spacing", distance);
+            if (mode != Mode.Border)
+            {
+                rows = Mathf.Max(1, EditorGUILayout.IntField("Max Lenght", rows));
+                center = (CenterType)EditorGUILayout.EnumPopup("Center", center);
+            }
+            float label = EditorGUIUtility.labelWidth;
+            EditorGUIUtility.labelWidth = 15f;
+            EditorGUILayout.BeginHorizontal();
+            spacingX = EditorGUILayout.FloatField("X", spacingX);
+            spacingZ = EditorGUILayout.FloatField("Z", spacingZ);
+            EditorGUILayout.EndHorizontal();
+            EditorGUIUtility.labelWidth = label;
             GUI.enabled = selectionCount > 1;
-            if (GUILayout.Button("Align")) Align();
+            EditorGUILayout.Space(5);
+            if (GUILayout.Button($"Align ({selectionCount})", GUILayout.Height(30f))) Align();
             EditorGUILayout.EndVertical();
         }
 
         private void OnInspectorUpdate()
         {
-            selectionCount = Selection.count;
+            selectionCount = GetSelectionWithoutChildren().Count;
             if (selectionCount != lastSelectionCount)
             {
                 lastSelectionCount = selectionCount;
@@ -49,83 +94,152 @@ namespace RedeevEditor.Utilities
 
         public void Align()
         {
-            List<GameObject> list = new(Selection.gameObjects);
-            List<GameObject> remove = new();
-            for (int i = 0; i < list.Count; i++)
+            List<GameObject> gameObjects = GetSelectionWithoutChildren();
+            if (gameObjects.Count == 0) return;
+
+            Vector3 center = CalculateCenter(gameObjects);
+            Vector3 offset = GetPosition((gameObjects.Count - 1) / rows, Mathf.Min(rows, gameObjects.Count) - 1);
+
+            for (int i = 0; i < gameObjects.Count; i++)
             {
-                for (int j = 0; j < list[i].transform.childCount; j++)
+                if (mode == Mode.Border)
                 {
-                    remove.Add(list[i].transform.GetChild(j).gameObject);
+                    if (i == 0)
+                    {
+                        Apply(i, Vector3.zero);
+                    }
+                    else
+                    {
+                        Vector3 offset2;
+                        if (axis == Axis.Z) offset2 = new Vector3(0, 0, spacingZ + GetBounds(gameObjects[i]).extents.z + GetBounds(gameObjects[i - 1]).extents.z);
+                        else offset2 = new Vector3(spacingX + GetBounds(gameObjects[i]).extents.x + GetBounds(gameObjects[i - 1]).extents.x, 0, 0);
+                        Apply(i, GetBoundCenter(gameObjects[i - 1]) + offset2);
+                    }
                 }
-            }
-            for (int i = 0; i < remove.Count; i++)
-            {
-                list.Remove(remove[i]);
+                else Apply(i, GetPosition(i / rows, i % rows) - offset / 2f + center);
             }
 
-            if (list.Count == 0) return;
-
-            List<int> elements;
-
-            elements = Align(list.Count, number);
-
-            int index = 0;
-            for (int i = 0; i < elements.Count; i++)
+            void Apply(int goIndex, Vector3 position)
             {
-                for (int j = 0; j < elements[i]; j++)
+                if (mode == Mode.Center || mode == Mode.Border)
                 {
-                    if (axis == Axis.Z) list[index].transform.localPosition = new Vector3(i * distance.x, 0f, j * distance.y);
-                    else list[index].transform.localPosition = new Vector3(j * distance.x, 0f, i * distance.y);
-                    index++;
+                    Vector3 realCenter = GetBoundCenter(gameObjects[goIndex]);
+                    position += (gameObjects[goIndex].transform.position - realCenter);
                 }
-            }
 
-            //Vector3 positon = transform.position;
-            //CenterOnChildred(transform);
-            //transform.position = positon;
+                if (this.center == CenterType.LocalZero) gameObjects[goIndex].transform.localPosition = position;
+                else gameObjects[goIndex].transform.position = position;
+            }
         }
 
-        private List<int> Align(int total, int fixedNumber)
+        private Vector3 GetPosition(int i, int j)
         {
-            List<int> elements = new();
-
-            int left = total / fixedNumber;
-
-            for (int i = 0; i < fixedNumber; i++)
+            return axis switch
             {
-                int e = Mathf.Min(total, left);
-                elements.Add(e);
-                total -= e;
-                if (total <= 0) break;
+                Axis.X => new Vector3(j * spacingX, 0f, i * spacingZ),
+                Axis.Z => new Vector3(i * spacingX, 0f, j * spacingZ),
+                _ => Vector3.zero,
+            };
+        }
+
+        private Vector3 CalculateCenter(List<GameObject> gos)
+        {
+            switch (center)
+            {
+                case CenterType.Barycenter:
+                    Vector3 sumVector = Vector3.zero;
+                    foreach (GameObject go in gos) sumVector += go.transform.position;
+                    return sumVector / gos.Count;
+                case CenterType.First:
+                    return gos[0].transform.position;
+                case CenterType.WorldZero:
+                    return Vector3.zero;
+                case CenterType.LocalZero:
+                    return Vector3.zero;
             }
+            return Vector3.zero;
+        }
 
-            if (total > 0)
+        private List<GameObject> GetSelectionWithoutChildren()
+        {
+            if (Selection.objects.Length == 0) return new();
+
+            List<GameObject> gameObjects = new();
+            foreach (var obj in Selection.objects)
             {
-                int index = 0;
-                while (total > 0)
+                if (obj is GameObject go && go.scene.IsValid()) gameObjects.Add(go);
+                else return new();
+            }
+            if (gameObjects.Count == 0) return new();
+
+            List<GameObject> childs = new();
+            for (int i = 0; i < gameObjects.Count; i++)
+            {
+                for (int j = 0; j < gameObjects[i].transform.childCount; j++)
                 {
-                    elements[index] += 1;
-                    total--;
-                    index++;
-                    index %= elements.Count;
+                    childs.Add(gameObjects[i].transform.GetChild(j).gameObject);
                 }
             }
-            return elements;
+            for (int i = 0; i < childs.Count; i++)
+            {
+                gameObjects.Remove(childs[i]);
+            }
+
+            return gameObjects;
         }
 
-        private void CenterOnChildred(Transform parent)
+        #region Bounds
+
+        private Vector3 GetBoundCenter(GameObject obj)
         {
-            var childs = parent.Cast<Transform>().ToList();
-            var pos = Vector3.zero;
-            foreach (Transform child in childs)
-            {
-                pos += child.position;
-                child.parent = null;
-            }
-            pos /= childs.Count;
-            parent.position = pos;
-            foreach (var child in childs) child.parent = parent;
+            Vector3 center = GetBounds(obj).center;
+            center.y = 0;
+            return center;
         }
+
+        private Bounds GetBounds(GameObject room)
+        {
+            Bounds bounds = new(room.transform.position, Vector3.zero);
+
+            switch (source)
+            {
+                case BoundsSource.FirstChild:
+                    if (room.transform.childCount > 0) bounds = GetRenderBounds(room.transform.GetChild(0).gameObject);
+                    break;
+                case BoundsSource.CustomChild:
+                    if (!string.IsNullOrEmpty(childName))
+                    {
+                        foreach (Transform child in room.transform)
+                        {
+                            if (child.gameObject.name.Equals(childName) && child.TryGetComponent(out Renderer childRender))
+                            {
+                                bounds = childRender.bounds;
+                                break;
+                            }
+                        }
+                    }
+                    break;
+                case BoundsSource.AllChildren:
+                    bounds = GetRenderBounds(room);
+                    foreach (Transform child in room.transform)
+                    {
+                        if (child.TryGetComponent(out Renderer childRender)) bounds.Encapsulate(childRender.bounds);
+                        else bounds.Encapsulate(GetBounds(child.gameObject));
+                    }
+                    break;
+            }
+
+            return bounds;
+        }
+
+        private Bounds GetRenderBounds(GameObject element)
+        {
+            Bounds bounds = new(element.transform.position, Vector3.zero);
+            if (element.TryGetComponent(out Renderer render)) return render.bounds;
+            return bounds;
+        }
+
+        #endregion     
     }
 }
 #endif
