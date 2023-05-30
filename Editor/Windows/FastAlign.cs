@@ -25,8 +25,6 @@ namespace RedeevEditor.Utilities
         public enum CenterType
         {
             LocalZero,
-            Barycenter,
-            First,
             WorldZero
         }
 
@@ -40,7 +38,7 @@ namespace RedeevEditor.Utilities
         private BoundsSource source = BoundsSource.AllChildren;
         private string childName = string.Empty;
         private Axis axis = Axis.X;
-        private CenterType center = CenterType.Barycenter;
+        private CenterType center = CenterType.LocalZero;
         private int rows = 1;
         private float spacingX = 1f;
         private float spacingZ = 1f;
@@ -97,6 +95,16 @@ namespace RedeevEditor.Utilities
             List<GameObject> gameObjects = GetSelectionWithoutChildren();
             if (gameObjects.Count == 0) return;
 
+            Undo.SetCurrentGroupName("Align selected objects");
+            int group = Undo.GetCurrentGroup();
+
+            Transform[] t = new Transform[gameObjects.Count];
+            for (int i = 0; i < gameObjects.Count; i++)
+            {
+                t[i] = gameObjects[i].transform;
+            }
+            Undo.RecordObjects(t, "Align selected objects");
+
             Vector3 center = CalculateCenter(gameObjects);
             Vector3 offset = GetPosition((gameObjects.Count - 1) / rows, Mathf.Min(rows, gameObjects.Count) - 1);
 
@@ -118,6 +126,8 @@ namespace RedeevEditor.Utilities
                 }
                 else Apply(i, GetPosition(i / rows, i % rows) - offset / 2f + center);
             }
+
+            Undo.CollapseUndoOperations(group);
 
             void Apply(int goIndex, Vector3 position)
             {
@@ -146,12 +156,12 @@ namespace RedeevEditor.Utilities
         {
             switch (center)
             {
-                case CenterType.Barycenter:
-                    Vector3 sumVector = Vector3.zero;
-                    foreach (GameObject go in gos) sumVector += go.transform.position;
-                    return sumVector / gos.Count;
-                case CenterType.First:
-                    return gos[0].transform.position;
+                //case CenterType.Barycenter:
+                //    Vector3 sumVector = Vector3.zero;
+                //    foreach (GameObject go in gos) sumVector += go.transform.position;
+                //    return sumVector / gos.Count;
+                //case CenterType.First:
+                //    return gos[0].transform.position;
                 case CenterType.WorldZero:
                     return Vector3.zero;
                 case CenterType.LocalZero:
