@@ -10,7 +10,7 @@ namespace RedeevEditor.Utilities
     [Icon("d_DefaultSorting")]
     public class SnapToGround : IMGUIOverlay
     {
-        private int mask = 1;
+        private int mask = ~0;
         private float offset = 0f;
         public const string overlayID = "SnapToGround";
 
