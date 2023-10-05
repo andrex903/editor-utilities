@@ -57,6 +57,7 @@ namespace RedeevEditor.Utilities
         public bool useNormals = false;
 
         public bool showPreview = false;
+        public bool showPreviewGizmos = false;
 
         public enum PaintMode
         {

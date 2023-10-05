@@ -209,7 +209,10 @@ namespace RedeevEditor.Utilities
             if (!isActive || evt.alt) return;
 
             currentHit = GetHitInformations(evt);
-            if (SceneData.showPreview && SceneData.paintMode == PaintMode.Single) DrawPreview();
+            if (SceneData.showPreview && SceneData.paintMode == PaintMode.Single)
+            {
+                DrawPreview();
+            }
             else DrawTarget();
 
             if (evt.GetTypeForControl(controlID) == EventType.KeyDown)
@@ -345,6 +348,10 @@ namespace RedeevEditor.Utilities
                 SceneData.useNormals = EditorGUILayout.Toggle("Align with Normals", SceneData.useNormals);
                 if (SceneData.paintMode == PaintMode.Multi) GUI.enabled = false;
                 SceneData.showPreview = EditorGUILayout.Toggle("Show Preview", SceneData.showPreview);
+                if (sceneData.showPreview)
+                {
+                    sceneData.showPreviewGizmos = EditorGUILayout.Toggle("Show Preview Gizmos", SceneData.showPreviewGizmos);
+                }
                 GUI.enabled = true;
                 if (!SceneData.showPreview) DestroyPreview();
                 SceneData.paintMode = (PaintMode)EditorGUILayout.EnumPopup("Paint Mode", SceneData.paintMode);
@@ -675,7 +682,12 @@ namespace RedeevEditor.Utilities
             if (SceneData.showPreview && selectedPrefab)
             {
                 preview = InstantiateObject(selectedPrefab, hit);
-                preview.hideFlags = HideFlags.HideAndDontSave;
+                if (sceneData.showPreviewGizmos)
+                {
+                    preview.name = "(_Preview)";
+                    preview.hideFlags = HideFlags.DontSave;
+                }
+                else preview.hideFlags = HideFlags.HideAndDontSave;
             }
         }
 
