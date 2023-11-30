@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Collections.Generic;
 
 public static class EnumExtensions
 {
@@ -78,6 +79,14 @@ public static class EnumExtensions
     public static int Count(Type type)
     {
         return Enum.GetNames(type).Length;
+    }
+
+    public static IEnumerable<T> GetFlags<T>(this T flags) where T : Enum
+    {
+        foreach (Enum value in Enum.GetValues(flags.GetType()))
+        {
+            if (flags.HasFlag(value)) yield return (T)value;
+        }
     }
 
     #endregion
