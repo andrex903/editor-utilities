@@ -246,6 +246,10 @@ namespace RedeevEditor.Utilities
 
             useremove = false;
             remove = "";
+
+            useRemoveCharacters = false;
+            startCount = 0;
+            endCount = 0;
         }
 
         #endregion
