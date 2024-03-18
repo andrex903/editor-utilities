@@ -1,17 +1,16 @@
 ﻿#if UNITY_EDITOR
-using UnityEngine;
-using UnityEditor;
 using System;
+using System.Collections.Generic;
+using UnityEditor;
+using UnityEngine;
 
 namespace RedeevEditor.Utilities
 {
     [Serializable]
     public class FastRename : EditorWindow
     {
-        private UnityEngine.Object[] SelectedObjects = new UnityEngine.Object[0];
-        private GameObject[] SelectedGameObjectObjects = new GameObject[0];
-
-        private string[] PreviewSelectedObjects = new string[0];
+        private UnityEngine.Object[] selectedObjects = new UnityEngine.Object[0];
+        private readonly List<string> previewSelectedObjects = new();
 
         private bool usebasename;
         private string basename;
@@ -20,15 +19,13 @@ namespace RedeevEditor.Utilities
         private bool usesuffix;
         private string suffix;
 
-        public enum Method
-        {
-            BySelection = 0,
-            ByHierarchy = 1
-        }
-        public Method method;
+        private bool useRemoveCharacters;
+        private int startCount;
+        private int endCount;
+
         private bool usenumbered;
         private int basenumbered = 0;
-        private int stepnumbered = 1;
+        private int stepNumbered = 1;
 
         private bool usereplace;
         private string replace;
@@ -46,6 +43,7 @@ namespace RedeevEditor.Utilities
         }
 
         #region GUI
+
         private void OnGUI()
         {
             EditorGUILayout.BeginVertical("Box");
@@ -71,8 +69,7 @@ namespace RedeevEditor.Utilities
             EditorGUILayout.PrefixLabel("Numbered: ");
             EditorGUILayout.BeginVertical();
             basenumbered = EditorGUILayout.IntField("Start number: ", basenumbered);
-            stepnumbered = EditorGUILayout.IntField("Step: ", stepnumbered);
-            method = (Method)EditorGUILayout.EnumPopup(new GUIContent("Number method", "Number by position in selection, or number by hierarchy position. Note: Project files cannot be renamed with the hierarchy method as they are not present in the scene."), method);
+            stepNumbered = EditorGUILayout.IntField("Step: ", stepNumbered);          
             EditorGUILayout.EndVertical();
             EditorGUILayout.EndHorizontal();
 
@@ -94,11 +91,22 @@ namespace RedeevEditor.Utilities
             EditorGUILayout.EndHorizontal();
 
             EditorGUILayout.Space();
+
+            EditorGUILayout.BeginHorizontal();
+            useRemoveCharacters = EditorGUILayout.Toggle(useRemoveCharacters, GUILayout.MaxWidth(16));
+            EditorGUILayout.PrefixLabel("Remove at: ");
+            EditorGUILayout.BeginVertical();
+            startCount = EditorGUILayout.IntField("From Start: ", startCount);
+            endCount = EditorGUILayout.IntField("From End: ", endCount);
+            EditorGUILayout.EndVertical();
+            EditorGUILayout.EndHorizontal();
+
+            EditorGUILayout.Space();
             //Rename
             if (GUILayout.Button(new GUIContent("Rename", "Renames selected objects with current settings."))) { Rename(); }
             EditorGUILayout.EndVertical();
 
-            if (SelectedObjects.Length > 0)
+            if (selectedObjects.Length > 0)
             {
                 showselection = EditorGUILayout.Foldout(showselection, "Selection and preview");
                 if (showselection)
@@ -107,17 +115,17 @@ namespace RedeevEditor.Utilities
                     EditorGUILayout.BeginVertical("Box");
                     GUILayout.Label("Selection", EditorStyles.boldLabel);
                     EditorGUILayout.Space();
-                    for (int i = 0; i < SelectedObjects.Length; i++)
+                    for (int i = 0; i < selectedObjects.Length; i++)
                     {
-                        EditorGUILayout.LabelField(SelectedObjects[i].name);
+                        EditorGUILayout.LabelField(selectedObjects[i].name);
                     }
                     EditorGUILayout.EndVertical();
                     EditorGUILayout.BeginVertical("Box");
                     GUILayout.Label("Preview", EditorStyles.boldLabel);
                     EditorGUILayout.Space();
-                    for (int i = 0; i < SelectedObjects.Length; i++)
+                    for (int i = 0; i < selectedObjects.Length; i++)
                     {
-                        EditorGUILayout.LabelField(PreviewSelectedObjects[i]);
+                        EditorGUILayout.LabelField(previewSelectedObjects[i]);
                     }
 
                     EditorGUILayout.EndVertical();
@@ -131,71 +139,91 @@ namespace RedeevEditor.Utilities
                 ClearSettings();
             }
         }
+
         #endregion
 
         #region Functions
         private void Update()
         {
-            SelectedObjects = Selection.objects;
+            selectedObjects = Selection.objects;
 
-            SelectedGameObjectObjects = Selection.gameObjects;
+            previewSelectedObjects.Clear();
 
-            PreviewSelectedObjects = new string[SelectedObjects.Length];
-
-            for (int i = 0; i < SelectedObjects.Length; i++)
+            for (int i = 0; i < selectedObjects.Length; i++)
             {
-                string str = SelectedObjects[i].name;
-                if (usebasename) { str = basename; }
-                if (useprefix) { str = prefix + str; }
-                if (usesuffix) { str = str + suffix; }
-
-                if (usenumbered && method == Method.BySelection) { str = str + ((basenumbered + (stepnumbered * i)).ToString()); }
-
-                if (useremove && remove != "") { str = str.Replace(remove, ""); }
-                if (usereplace && replace != "") { str = str.Replace(replace, replacewith); }
-
-                if (usenumbered && method == Method.ByHierarchy)
-                {
-                    for (int z = 0; z < SelectedGameObjectObjects.Length; z++)
-                    {
-                        if ((UnityEngine.Object)SelectedGameObjectObjects[z] == (UnityEngine.Object)SelectedObjects[i])
-                        {
-                            str = str + ((basenumbered + (stepnumbered * SelectedGameObjectObjects[z].transform.GetSiblingIndex())).ToString());
-                        }
-                    }
-                }
-
-                PreviewSelectedObjects[i] = str;
+                previewSelectedObjects.Add(Rename(selectedObjects[i].name, i));
             }
 
         }
 
         private void Rename()
         {
-            for (int i = 0; i < SelectedObjects.Length; i++)
+            for (int i = 0; i < selectedObjects.Length; i++)
             {
-                Undo.RecordObject(SelectedObjects[i], "Rename");
-                if (usebasename) { SelectedObjects[i].name = basename; }
-                if (useprefix) { SelectedObjects[i].name = prefix + SelectedObjects[i].name; }
-                if (usesuffix) { SelectedObjects[i].name = SelectedObjects[i].name + suffix; }
+                Undo.RecordObject(selectedObjects[i], "Rename");
 
-                if (usenumbered && method == Method.BySelection) { SelectedObjects[i].name = SelectedObjects[i].name + ((basenumbered + (stepnumbered * i)).ToString()); }
+                Rename(selectedObjects[i].name, i);
 
-                if (useremove && remove != "") { SelectedObjects[i].name = SelectedObjects[i].name.Replace(remove, ""); }
-                if (usereplace && replace != "") { SelectedObjects[i].name = SelectedObjects[i].name.Replace(replace, replacewith); }
-
-                if (AssetDatabase.GetAssetPath(SelectedObjects[i]) != null)
+                string path = AssetDatabase.GetAssetPath(selectedObjects[i]);
+                if (!string.IsNullOrEmpty(path))
                 {
-                    AssetDatabase.RenameAsset(AssetDatabase.GetAssetPath(SelectedObjects[i]), SelectedObjects[i].name);
+                    AssetDatabase.RenameAsset(path, selectedObjects[i].name);
                 }
 
             }
+        }
 
-            for (int i = 0; i < SelectedGameObjectObjects.Length; i++)
+        private string Rename(string name, int index)
+        {
+            if (usebasename)
             {
-                if (usenumbered && method == Method.ByHierarchy) { SelectedGameObjectObjects[i].name = SelectedGameObjectObjects[i].name + ((basenumbered + (stepnumbered * SelectedGameObjectObjects[i].transform.GetSiblingIndex())).ToString()); }
-
+                name = basename;
             }
+            if (useprefix)
+            {
+                name = prefix + name;
+            }
+            if (usesuffix)
+            {
+                name += suffix;
+            }
+
+            if (usenumbered)
+            {
+                name += ((basenumbered + (stepNumbered * index)).ToString());
+            }
+
+            if (useremove && remove != string.Empty)
+            {
+                name = name.Replace(remove, string.Empty);
+            }
+
+            if (usereplace && replace != string.Empty)
+            {
+                name = name.Replace(replace, replacewith);
+            }
+
+            if (useRemoveCharacters)
+            {
+                name = RemoveCharacters(name, startCount, endCount);
+            }
+
+            return name;
+        }
+
+        private static string RemoveCharacters(string input, int start, int end)
+        {
+            if (start < 0 || end < 0)
+            {
+                return input;
+            }
+
+            if (start >= input.Length || end >= input.Length)
+            {
+                return input;
+            }
+
+            return input.Substring(start, input.Length - start - end);
         }
 
         private void ClearSettings()
@@ -208,7 +236,7 @@ namespace RedeevEditor.Utilities
             suffix = "";
             usenumbered = false;
             basenumbered = 0;
-            stepnumbered = 1;
+            stepNumbered = 1;
 
             usereplace = false;
             replace = "";
@@ -217,6 +245,7 @@ namespace RedeevEditor.Utilities
             useremove = false;
             remove = "";
         }
+
         #endregion
     }
 }
