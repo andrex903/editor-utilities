@@ -69,7 +69,7 @@ namespace RedeevEditor.Utilities
             EditorGUILayout.PrefixLabel("Numbered: ");
             EditorGUILayout.BeginVertical();
             basenumbered = EditorGUILayout.IntField("Start number: ", basenumbered);
-            stepNumbered = EditorGUILayout.IntField("Step: ", stepNumbered);          
+            stepNumbered = EditorGUILayout.IntField("Step: ", stepNumbered);
             EditorGUILayout.EndVertical();
             EditorGUILayout.EndHorizontal();
 
@@ -162,7 +162,7 @@ namespace RedeevEditor.Utilities
             {
                 Undo.RecordObject(selectedObjects[i], "Rename");
 
-                Rename(selectedObjects[i].name, i);
+                selectedObjects[i].name = Rename(selectedObjects[i].name, i);
 
                 string path = AssetDatabase.GetAssetPath(selectedObjects[i]);
                 if (!string.IsNullOrEmpty(path))
@@ -215,11 +215,13 @@ namespace RedeevEditor.Utilities
         {
             if (start < 0 || end < 0)
             {
+                Debug.LogError("Start and end must be positive numbers");
                 return input;
             }
 
             if (start >= input.Length || end >= input.Length)
             {
+                Debug.LogError("Start and end must be less than the length of the string");
                 return input;
             }
 
