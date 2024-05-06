@@ -7,6 +7,11 @@ public static class EnumExtensions
 
     public static bool Has<T>(this Enum type, T value) where T : Enum
     {
+        if (value.Equals(default(T)))
+        {
+            return false;
+        }
+
         try
         {
             return ((type.ToInt() & value.ToInt()) == value.ToInt());
@@ -19,6 +24,11 @@ public static class EnumExtensions
 
     public static bool NotContains<T>(this Enum type, T value) where T : Enum
     {
+        if (value.Equals(default(T)))
+        {
+            return true;
+        }
+
         try
         {
             return ((type.ToInt() & value.ToInt()) == 0);
@@ -31,11 +41,21 @@ public static class EnumExtensions
 
     public static T Add<T>(this Enum type, T value) where T : Enum
     {
+        if (value.Equals(default(T)))
+        {
+            return (T)(object)type;
+        }
+
         return (T)(object)((type.ToInt() | value.ToInt()));
     }
 
     public static T Remove<T>(this Enum type, T value) where T : Enum
     {
+        if (value.Equals(default(T)))
+        {
+            return (T)(object)type;
+        }
+
         return (T)(object)((type.ToInt() & ~value.ToInt()));
     }
 
