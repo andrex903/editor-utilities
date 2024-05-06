@@ -9,7 +9,7 @@ public static class EnumExtensions
     {
         if (value.Equals(default(T)))
         {
-            return false;
+            return true;
         }
 
         try
@@ -26,7 +26,7 @@ public static class EnumExtensions
     {
         if (value.Equals(default(T)))
         {
-            return true;
+            return false;
         }
 
         try
