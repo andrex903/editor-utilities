@@ -30,52 +30,57 @@ namespace RedeevEditor.Utilities
             Z
         }
 
-        public List<Group> groups = new();
-
-        public LayerMask RayMask = ~0;
-
-        public Vector3 offset;
-        public Vector3 rotation;
-        public Vector3 scale = Vector3.one;
-        public Space space = Space.World;
-
-        public Vector3 startingRot = Vector3.zero;
-        public float angleTab = 90f;
-
-        public bool randomizeRotation = false;
-        public bool randomizeScale = false;
-
-        public bool chooseRandom = false;
-
-        public float minScale = 0.5f;
-        public float maxScale = 1f;
-
-        public Axis currentAxis = Axis.Y;
-        public float minAngle = 0f;
-        public float maxAngle = 360f;
-
-        public bool useNormals = false;
-
-        public bool showPreview = false;
-        public bool showPreviewGizmos = false;
-
         public enum PaintMode
         {
             Single,
             Multi
         }
 
+        public float BrushSize => paintMode == PaintMode.Single ? 0.25f : brushSize;
+
+        public List<Group> groups = new();
+
+        #region Placing Options
+
+        public bool randomizeSelection = false;
+        public LayerMask RayMask = ~0;
+        public bool alignWithNormals = false;
+        public bool showPreview = false;
+        public bool showPreviewGizmos = false;
         public PaintMode paintMode = PaintMode.Single;
         public float brushSize = 0.25f;
-        public float BrushSize => paintMode == PaintMode.Single ? 0.25f : brushSize;
         public float density = 1f;
         public float minDistance = 0f;
+        public bool useColliders = false;
+        public LayerMask collidersMask = ~0;
+
+        #endregion
+
+        #region Transform
+
+        public Vector3 positionOffset;
+        public Space space = Space.World;
+
+        public Axis currentAxis = Axis.Y;
+        public float rotationDelta = 90f;
+        public bool randomizeRotation = false;
+        public Vector3 rotation;
+        public float minAngle = 0f;
+        public float maxAngle = 360f;
+
+        public bool randomizeScale = false;
+        public Vector3 scale = Vector3.one;     
+        public float minScale = 0.5f;
+        public float maxScale = 1f;
+
+        #endregion
 
         #region Snapping
 
         public bool snapX = false;
         public bool snapY = false;
         public bool snapZ = false;
+
         public bool autoSetX = false;
         public bool autoSetY = false;
         public bool autoSetZ = false;
@@ -86,10 +91,14 @@ namespace RedeevEditor.Utilities
 
         #endregion
 
-        public int gridSize = 10;
+        #region Grid
+
         public bool drawXY = false;
         public bool drawXZ = false;
         public bool drawYZ = false;
+        public int gridSize = 10;
+
+        #endregion
 
         public Element selected = null;
         public Group selectedGroup = null;
@@ -110,11 +119,11 @@ namespace RedeevEditor.Utilities
             selected = element;
             selected.isSelected = true;
 
-            for (int i = 0; i < groups.Count; i++)
+            foreach (Group group in groups)
             {
-                if (groups[i].elements.Contains(element))
+                if (group.elements.Contains(element))
                 {
-                    selectedGroup = groups[i];
+                    selectedGroup = group;
                     break;
                 }
             }

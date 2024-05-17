@@ -26,8 +26,6 @@ namespace RedeevEditor.Utilities
         private HitInfo currentHit;
         private HitInfo clickHit;
 
-        private bool canPlace = false;
-
         private int controlID;
         private bool isActive = false;
 
@@ -47,16 +45,8 @@ namespace RedeevEditor.Utilities
 
         private KeyValuePair<GameObject, Texture2D> currentPreview;
 
-        private readonly int HASH = "FastPlacer".GetHashCode();
-        private const string CREATE_ICON = "d_Toolbar Plus";
-        private const string CREATE_GROUP_ICON = "Add-Available";
-        private const string GROUP_ICON = "d_FolderEmpty Icon";
-        private const string ACTIVE_GROUP_ICON = "d_Folder Icon";
-        private const string DELETE_ICON = "TreeEditor.Trash";
-
         private FastPlacerSceneData sceneData = null;
-
-        private readonly List<Vector3> positions = new();
+        private readonly Collider[] colliders = new Collider[1];
 
         private FastPlacerSceneData SceneData
         {
@@ -74,6 +64,13 @@ namespace RedeevEditor.Utilities
                 return sceneData;
             }
         }
+
+        private readonly int HASH = "FastPlacer".GetHashCode();
+        private const string CREATE_ICON = "d_Toolbar Plus";
+        private const string CREATE_GROUP_ICON = "Add-Available";
+        private const string GROUP_ICON = "d_FolderEmpty Icon";
+        private const string ACTIVE_GROUP_ICON = "d_Folder Icon";
+        private const string DELETE_ICON = "TreeEditor.Trash";
 
         [MenuItem("Tools/Utilities/Fast Placer")]
         public static void ShowWindow()
@@ -122,19 +119,17 @@ namespace RedeevEditor.Utilities
         private HitInfo GetHitInformations(Event evt)
         {
             Ray ray = HandleUtility.GUIPointToWorldRay(new(evt.mousePosition.x, evt.mousePosition.y));
-
-            if (Physics.Raycast(ray, out RaycastHit hit, Mathf.Infinity, SceneData.RayMask))
-            {
-                return new(hit.transform.root, SnapToCustomGrid(hit.point), hit.normal);
-            }
-
-            return null;
+            return GetHitInformations(ray);
         }
 
         private HitInfo GetHitInformations(Vector3 point)
         {
-            Ray ray = new Ray(point + Vector3.up * 10f, -Vector3.up);
+            Ray ray = new(point + Vector3.up * 10f, -Vector3.up);
+            return GetHitInformations(ray);
+        }
 
+        private HitInfo GetHitInformations(Ray ray)
+        {
             if (Physics.Raycast(ray, out RaycastHit hit, Mathf.Infinity, SceneData.RayMask))
             {
                 return new(hit.transform.root, SnapToCustomGrid(hit.point), hit.normal);
@@ -187,14 +182,9 @@ namespace RedeevEditor.Utilities
             }
         }
 
-        private int CalculateNumber()
-        {
-            return Mathf.RoundToInt(SceneData.brushSize * SceneData.brushSize * SceneData.density * 2 * Mathf.PI);
-        }
-
         private Space GetSpace()
         {
-            return SceneData.useNormals ? Space.Self : SceneData.space;
+            return SceneData.alignWithNormals ? Space.Self : SceneData.space;
         }
 
         #endregion
@@ -231,12 +221,12 @@ namespace RedeevEditor.Utilities
                 }
                 else if (evt.keyCode == KeyCode.UpArrow)
                 {
-                    if (!SceneData.chooseRandom) ChangeSelection(-1);
+                    if (!SceneData.randomizeSelection) ChangeSelection(-1);
                     evt.Use();
                 }
                 else if (evt.keyCode == KeyCode.DownArrow)
                 {
-                    if (!SceneData.chooseRandom) ChangeSelection(1);
+                    if (!SceneData.randomizeSelection) ChangeSelection(1);
                     evt.Use();
                 }
             }
@@ -245,36 +235,11 @@ namespace RedeevEditor.Utilities
                 clickHit = currentHit;
                 if (clickHit != null)
                 {
-                    if (SceneData.paintMode == PaintMode.Single)
-                    {
-                        PlaceGameObject();
-                    }
-                    else
-                    {
-                        Undo.IncrementCurrentGroup();
-                        Undo.SetCurrentGroupName("Instantiated objects");
-                        var undoGroupIndex = Undo.GetCurrentGroup();
-                        positions.Clear();
-                        int count = CalculateNumber();
-                        for (int i = 0; i < count; i++)
-                        {
-                            if (TryGetGoodPosition(out Vector3 goodPosition))
-                            {
-                                HitInfo hit = GetHitInformations(goodPosition);
-                                GameObject instance = InstantiateObject(selectedPrefab, hit);
-                                if (instance)
-                                {
-                                    SetParent(instance, clickHit);
-                                    Undo.RegisterCreatedObjectUndo(instance, string.Empty);
-                                }
-                            }
-                        }
-
-                        Undo.CollapseUndoOperations(undoGroupIndex);
-                    }
+                    if (SceneData.paintMode == PaintMode.Single) PlaceGameObject();
+                    else PlaceGameObjects();
                 }
 
-                if (SceneData.chooseRandom) SelectRandomPrefab();
+                if (SceneData.randomizeSelection) SelectRandomPrefab();
                 CreatePreview(clickHit);
 
                 evt.Use();
@@ -283,19 +248,6 @@ namespace RedeevEditor.Utilities
             {
                 HandleUtility.AddDefaultControl(controlID);
             }
-        }
-
-        private bool TryGetGoodPosition(out Vector3 goodPosition)
-        {
-            Vector2 pos = Random.insideUnitCircle * SceneData.brushSize;
-            goodPosition = clickHit.point + new Vector3(pos.x, 0f, pos.y);
-            for (int i = 0; i < positions.Count; i++)
-            {
-                if (Vector3.Distance(positions[i], goodPosition) < SceneData.minDistance) return false;
-            }
-
-            positions.Add(goodPosition);
-            return true;
         }
 
         private void OnGUI()
@@ -315,6 +267,7 @@ namespace RedeevEditor.Utilities
             if (GUILayout.Button(new GUIContent(isActive ? " Stop" : " Paint", EditorGUIUtility.IconContent("d_Grid.PaintTool").image), GUILayout.Height(25f)))
             {
                 SetActive(!isActive);
+                ActivateCollider(isActive);
             }
 
             GUI.backgroundColor = oldColor;
@@ -342,10 +295,10 @@ namespace RedeevEditor.Utilities
             if (placingOptionsFoldout = EditorGUILayout.Foldout(placingOptionsFoldout, "Placing Options"))
             {
                 EditorGUI.indentLevel++;
-                SceneData.chooseRandom = EditorGUILayout.Toggle("Randomize Selection", SceneData.chooseRandom);
+                SceneData.randomizeSelection = EditorGUILayout.Toggle("Randomize Selection", SceneData.randomizeSelection);
                 LayerMask tempMask = EditorGUILayout.MaskField("Raycast Mask", InternalEditorUtility.LayerMaskToConcatenatedLayersMask(SceneData.RayMask), InternalEditorUtility.layers);
                 SceneData.RayMask = InternalEditorUtility.ConcatenatedLayersMaskToLayerMask(tempMask);
-                SceneData.useNormals = EditorGUILayout.Toggle("Align with Normals", SceneData.useNormals);
+                SceneData.alignWithNormals = EditorGUILayout.Toggle("Align with Normals", SceneData.alignWithNormals);
                 if (SceneData.paintMode == PaintMode.Multi) GUI.enabled = false;
                 SceneData.showPreview = EditorGUILayout.Toggle("Show Preview", SceneData.showPreview);
                 if (sceneData.showPreview)
@@ -357,9 +310,14 @@ namespace RedeevEditor.Utilities
                 SceneData.paintMode = (PaintMode)EditorGUILayout.EnumPopup("Paint Mode", SceneData.paintMode);
                 if (SceneData.paintMode == PaintMode.Multi)
                 {
+                    EditorGUILayout.BeginVertical("Box");
                     SceneData.brushSize = EditorGUILayout.Slider("Brush Size", SceneData.brushSize, 0.25f, 5f);
                     SceneData.density = EditorGUILayout.FloatField("Density", SceneData.density);
                     SceneData.minDistance = EditorGUILayout.FloatField("Min Distance", SceneData.minDistance);
+                    SceneData.useColliders = EditorGUILayout.Toggle("Use Colliders", SceneData.useColliders);
+                    LayerMask tempMask2 = EditorGUILayout.MaskField("Collider Mask", InternalEditorUtility.LayerMaskToConcatenatedLayersMask(SceneData.collidersMask), InternalEditorUtility.layers);
+                    SceneData.collidersMask = InternalEditorUtility.ConcatenatedLayersMaskToLayerMask(tempMask2);
+                    EditorGUILayout.EndVertical();
                 }
                 EditorGUI.indentLevel--;
             }
@@ -449,7 +407,7 @@ namespace RedeevEditor.Utilities
                 EditorGUILayout.BeginHorizontal();
 
                 bool oldEnabled = GUI.enabled;
-                GUI.enabled = element.go && !SceneData.chooseRandom;
+                GUI.enabled = element.go && !SceneData.randomizeSelection;
                 element.isSelected = GUILayout.Toggle(element.isSelected, "", GUILayout.Width(20));
                 GUI.enabled = oldEnabled;
                 if (element.isSelected)
@@ -491,12 +449,12 @@ namespace RedeevEditor.Utilities
             {
                 EditorGUI.indentLevel++;
                 EditorGUILayout.BeginVertical("Box");
-                SceneData.offset = EditorGUILayout.Vector3Field("Position Offset", SceneData.offset);
+                SceneData.positionOffset = EditorGUILayout.Vector3Field("Position Offset", SceneData.positionOffset);
                 EditorGUILayout.EndVertical();
                 EditorGUILayout.BeginVertical("Box");
-                if (!SceneData.useNormals) SceneData.space = (Space)EditorGUILayout.EnumPopup("Space", SceneData.space);
+                if (!SceneData.alignWithNormals) SceneData.space = (Space)EditorGUILayout.EnumPopup("Space", SceneData.space);
                 SceneData.currentAxis = (Axis)EditorGUILayout.EnumPopup("Axis", SceneData.currentAxis);
-                SceneData.angleTab = EditorGUILayout.FloatField("Rotation Delta", SceneData.angleTab);
+                SceneData.rotationDelta = EditorGUILayout.FloatField("Rotation Delta", SceneData.rotationDelta);
                 SceneData.randomizeRotation = EditorGUILayout.Toggle("Randomize Rotation", SceneData.randomizeRotation);
                 if (SceneData.randomizeRotation)
                 {
@@ -662,7 +620,7 @@ namespace RedeevEditor.Utilities
 
         private void ChangeRotation()
         {
-            Vector3 delta = GetAxisVector(sceneData.angleTab);
+            Vector3 delta = GetAxisVector(sceneData.rotationDelta);
             SceneData.rotation += delta;
             if (SceneData.rotation.x > 360f) SceneData.rotation.x -= 360f;
             if (SceneData.rotation.y > 360f) SceneData.rotation.y -= 360f;
@@ -705,7 +663,7 @@ namespace RedeevEditor.Utilities
                 preview.SetActive(true);
                 SetPosition(preview, currentHit);
 
-                if (SceneData.useNormals)
+                if (SceneData.alignWithNormals)
                 {
                     SetNormal(preview, currentHit);
                     preview.transform.Rotate(lastRotation, GetSpace());
@@ -723,7 +681,7 @@ namespace RedeevEditor.Utilities
 
         private void SelectRandomPrefab()
         {
-            if (SceneData.selectedGroup != null && SceneData.chooseRandom)
+            if (SceneData.selectedGroup != null && SceneData.randomizeSelection)
             {
                 SceneData.Select(SceneData.selectedGroup.elements[Random.Range(0, SceneData.selectedGroup.elements.Count)]);
                 Repaint();
@@ -764,6 +722,64 @@ namespace RedeevEditor.Utilities
             Undo.RegisterCreatedObjectUndo(instance, "Instantiated object");
 
             Selection.activeGameObject = instance;
+        }
+
+        private void PlaceGameObjects()
+        {
+            Undo.IncrementCurrentGroup();
+            Undo.SetCurrentGroupName("Instantiated objects");
+            var undoGroupIndex = Undo.GetCurrentGroup();
+
+            List<Vector3> points = new();
+            int count = CalculateNumber();
+            for (int i = 0; i < count; i++)
+            {
+                if (TryGetGoodPosition(out Vector3 goodPosition))
+                {
+                    HitInfo hit = GetHitInformations(goodPosition);
+
+                    if (SceneData.useColliders)
+                    {
+                        if (Physics.OverlapSphereNonAlloc(hit.point, SceneData.minDistance, colliders, SceneData.collidersMask) > 0) continue;
+                    }
+
+                    GameObject instance = InstantiateObject(selectedPrefab, hit);
+                    if (instance)
+                    {
+                        if (SceneData.useColliders)
+                        {
+                            FastPlacerCollider placeComponent = instance.AddComponent<FastPlacerCollider>();
+                            placeComponent.Activate(true, SceneData.minDistance, SceneData.collidersMask);
+                        }
+                        SetParent(instance, clickHit);
+                        Undo.RegisterCreatedObjectUndo(instance, string.Empty);
+                    }
+                }
+            }
+
+            Undo.CollapseUndoOperations(undoGroupIndex);
+
+            bool TryGetGoodPosition(out Vector3 point)
+            {
+                Vector2 pos = Random.insideUnitCircle * SceneData.brushSize;
+                point = clickHit.point + new Vector3(pos.x, 0f, pos.y);
+
+                if (!SceneData.useColliders)
+                {
+                    for (int i = 0; i < points.Count; i++)
+                    {
+                        if (Vector3.Distance(points[i], point) < SceneData.minDistance) return false;
+                    }
+                    points.Add(point);
+                }
+              
+                return true;
+            }
+
+            int CalculateNumber()
+            {
+                return Mathf.RoundToInt(SceneData.brushSize * SceneData.brushSize * SceneData.density * 2 * Mathf.PI);
+            }
         }
 
         private void SetParent(GameObject instance, HitInfo hit)
@@ -820,7 +836,7 @@ namespace RedeevEditor.Utilities
 
         private void SetPosition(GameObject instance, HitInfo hit)
         {
-            instance.transform.position = hit.point + SceneData.offset;
+            instance.transform.position = hit.point + SceneData.positionOffset;
         }
 
         private void SetRotation(GameObject instance, HitInfo hit)
@@ -841,7 +857,7 @@ namespace RedeevEditor.Utilities
 
         private void SetNormal(GameObject instance, HitInfo hit)
         {
-            if (SceneData.useNormals)
+            if (SceneData.alignWithNormals)
             {
                 Align(instance.transform, hit.normal);
             }
@@ -912,7 +928,19 @@ namespace RedeevEditor.Utilities
             return snappedPoint;
         }
 
-        #endregion       
+        #endregion
+
+        #region Grass
+
+        private void ActivateCollider(bool value)
+        {
+            foreach (var item in FindObjectsOfType<FastPlacerCollider>())
+            {
+                item.Activate(value, SceneData.minDistance, SceneData.collidersMask);
+            }
+        }
+
+        #endregion
     }
 }
 #endif
