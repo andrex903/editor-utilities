@@ -204,13 +204,16 @@ namespace RedeevEditor.Utilities
 
             bool showPreview = SceneData.showPreview && SceneData.paintMode == PaintMode.Single;
 
-            if (showPreview)
+            if (!evt.alt)
             {
-                DrawPreview();
-            }
-            else
-            {
-                DrawTarget();
+                if (showPreview)
+                {
+                    DrawPreview();
+                }
+                else
+                {
+                    DrawTarget();
+                }
             }
 
             if (evt.GetTypeForControl(controlID) == EventType.KeyDown)
