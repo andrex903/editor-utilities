@@ -265,13 +265,13 @@ namespace RedeevEditor.Utilities
                     {
                         Place();
                     }
+                    evt.Use();
                 }
                 else if (evt.alt && evt.button == 1)
                 {
                     DestroyGameObjects();
+                    evt.Use();
                 }
-
-                evt.Use();
             }
             else if (evt.type == EventType.MouseUp)
             {
