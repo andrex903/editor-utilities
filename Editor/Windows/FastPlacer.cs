@@ -238,7 +238,7 @@ namespace RedeevEditor.Utilities
                     evt.Use();
                 }
             }
-            else if (evt.type == EventType.MouseDown)
+            else if (evt.type == EventType.MouseDown && !evt.alt)
             {
                 if (SceneData.paintMode == PaintMode.Multi)
                 {
