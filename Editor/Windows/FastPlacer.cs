@@ -238,24 +238,30 @@ namespace RedeevEditor.Utilities
                     evt.Use();
                 }
             }
-            else if (evt.type == EventType.MouseDown && !evt.alt)
+            else if (evt.type == EventType.MouseDown)
             {
-                if (SceneData.paintMode == PaintMode.Multi)
+                if (evt.button == 0 && !evt.alt)
                 {
-                    Undo.IncrementCurrentGroup();
-                    Undo.SetCurrentGroupName("Create/Delete objects");
-                }
+                    if (SceneData.paintMode == PaintMode.Multi)
+                    {
+                        Undo.IncrementCurrentGroup();
+                        Undo.SetCurrentGroupName("Create/Delete objects");
+                    }
 
-                if (evt.button == 0)
-                {
                     Place();
+                    evt.Use();
                 }
                 else if (evt.alt && evt.button == 1)
                 {
-                    DestroyGameObjects();
-                }
+                    if (SceneData.paintMode == PaintMode.Multi)
+                    {
+                        Undo.IncrementCurrentGroup();
+                        Undo.SetCurrentGroupName("Create/Delete objects");
+                    }
 
-                evt.Use();
+                    DestroyGameObjects();
+                    evt.Use();
+                }
             }
             else if (evt.type == EventType.MouseDrag)
             {
