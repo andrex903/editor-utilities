@@ -198,7 +198,7 @@ namespace RedeevEditor.Utilities
             Event evt = Event.current;
             controlID = GUIUtility.GetControlID(HASH, FocusType.Passive);
 
-            if (!isActive || evt.alt) return;
+            if (!isActive) return;
 
             currentHit = GetHitInformations(evt);
 
@@ -250,7 +250,7 @@ namespace RedeevEditor.Utilities
                 {
                     Place();
                 }
-                else if (evt.button == 1)
+                else if (evt.alt && evt.button == 1)
                 {
                     DestroyGameObjects();
                 }
@@ -266,7 +266,7 @@ namespace RedeevEditor.Utilities
                         Place();
                     }
                 }
-                else if (evt.button == 1)
+                else if (evt.alt && evt.button == 1)
                 {
                     DestroyGameObjects();
                 }
@@ -280,7 +280,7 @@ namespace RedeevEditor.Utilities
                     Undo.CollapseUndoOperations(Undo.GetCurrentGroup());
                 }
             }
-            else if (evt.isScrollWheel)
+            else if (evt.alt && evt.isScrollWheel)
             {
                 if (SceneData.paintMode == PaintMode.Multi)
                 {
@@ -354,13 +354,12 @@ namespace RedeevEditor.Utilities
             if (controlsFoldout = EditorGUILayout.Foldout(controlsFoldout, "Controls"))
             {
                 EditorGUILayout.BeginVertical("Box");
-                GUILayout.Label("Left Click - Place Object");
-                GUILayout.Label("Right Click - Delete Object");
-                GUILayout.Label("Scroll Wheel - Change Brush Size");
-                GUILayout.Label("Alt - Ignore tool controls");            
-                GUILayout.Label("Escape - Stop Placing");
-                GUILayout.Label("Space - Increase Rotation");
-                GUILayout.Label("Up/Down Arrow - Change Active Selection");          
+                GUILayout.Label("[Left Click] -> Place Object");
+                GUILayout.Label("[Right Click + Alt] -> Delete Object");
+                GUILayout.Label("[Scroll Wheel + Alt] -> Change Brush Size");
+                GUILayout.Label("[Escape] -> Stop Placing");
+                GUILayout.Label("[Space] -> Change Rotation");
+                GUILayout.Label("[Up/Down Arrow] -> Change Active Selection");
                 EditorGUILayout.EndVertical();
             }
             EditorGUILayout.EndVertical();
@@ -866,7 +865,10 @@ namespace RedeevEditor.Utilities
 
             foreach (var collider in colliders)
             {
-                Undo.DestroyObjectImmediate(collider.gameObject);
+                if (collider.GetComponent<FastPlacerCollider>())
+                {
+                    Undo.DestroyObjectImmediate(collider.gameObject);
+                }
             }
         }
 
