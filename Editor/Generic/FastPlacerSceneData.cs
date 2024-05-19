@@ -36,7 +36,17 @@ namespace RedeevEditor.Utilities
             Multi
         }
 
-        public float BrushSize => paintMode == PaintMode.Single ? 0.25f : brushSize;
+        public float BrushSize
+        {
+            get
+            {
+                return paintMode == PaintMode.Single ? MIN_BRUSH_SIZE : brushSize;
+            }
+            set
+            {
+                brushSize = Mathf.Clamp(value, MIN_BRUSH_SIZE, MAX_BRUSH_SIZE);
+            }
+        }
 
         public List<Group> groups = new();
 
@@ -54,6 +64,9 @@ namespace RedeevEditor.Utilities
         public bool useColliders = false;
         public LayerMask collidersMask = ~0;
 
+        public const float MIN_BRUSH_SIZE = 0.25f;
+        public const float MAX_BRUSH_SIZE = 5f;
+
         #endregion
 
         #region Transform
@@ -69,7 +82,7 @@ namespace RedeevEditor.Utilities
         public float maxAngle = 360f;
 
         public bool randomizeScale = false;
-        public Vector3 scale = Vector3.one;     
+        public Vector3 scale = Vector3.one;
         public float minScale = 0.5f;
         public float maxScale = 1f;
 
@@ -102,6 +115,7 @@ namespace RedeevEditor.Utilities
 
         public Element selected = null;
         public Group selectedGroup = null;
+        public readonly Collider[] colliders = new Collider[1];
 
         private void Awake()
         {

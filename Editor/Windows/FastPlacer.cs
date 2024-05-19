@@ -29,6 +29,7 @@ namespace RedeevEditor.Utilities
         private int controlID;
         private bool isActive = false;
 
+        private bool controlsFoldout = false;
         private bool offsetFoldout = false;
         private bool previewFoldout = false;
         private bool snapFoldout = false;
@@ -46,7 +47,6 @@ namespace RedeevEditor.Utilities
         private KeyValuePair<GameObject, Texture2D> currentPreview;
 
         private FastPlacerSceneData sceneData = null;
-        private readonly Collider[] colliders = new Collider[1];
 
         private FastPlacerSceneData SceneData
         {
@@ -64,6 +64,8 @@ namespace RedeevEditor.Utilities
                 return sceneData;
             }
         }
+
+        private static readonly Color TARGET_COLOR = new(1, 0, 0, .1f);
 
         private readonly int HASH = "FastPlacer".GetHashCode();
         private const string CREATE_ICON = "d_Toolbar Plus";
@@ -143,7 +145,7 @@ namespace RedeevEditor.Utilities
             if (currentHit == null) return;
 
             Color oldColor = Handles.color;
-            Handles.color = new Color(1, 0, 0, .5f);
+            Handles.color = TARGET_COLOR;
             Handles.DrawSolidDisc(currentHit.point, currentHit.normal, SceneData.BrushSize);
             Handles.color = oldColor;
         }
@@ -199,11 +201,17 @@ namespace RedeevEditor.Utilities
             if (!isActive || evt.alt) return;
 
             currentHit = GetHitInformations(evt);
-            if (SceneData.showPreview && SceneData.paintMode == PaintMode.Single)
+
+            bool showPreview = SceneData.showPreview && SceneData.paintMode == PaintMode.Single;
+
+            if (showPreview)
             {
                 DrawPreview();
             }
-            else DrawTarget();
+            else
+            {
+                DrawTarget();
+            }
 
             if (evt.GetTypeForControl(controlID) == EventType.KeyDown)
             {
@@ -213,7 +221,7 @@ namespace RedeevEditor.Utilities
                     Repaint();
                     evt.Use();
                 }
-                else if (evt.keyCode == KeyCode.Space)
+                else if (evt.keyCode == KeyCode.Space && !sceneData.randomizeRotation)
                 {
                     ChangeRotation();
                     Repaint();
@@ -230,7 +238,63 @@ namespace RedeevEditor.Utilities
                     evt.Use();
                 }
             }
-            else if (evt.type == EventType.MouseDown && evt.button == 0)
+            else if (evt.type == EventType.MouseDown)
+            {
+                if (SceneData.paintMode == PaintMode.Multi)
+                {
+                    Undo.IncrementCurrentGroup();
+                    Undo.SetCurrentGroupName("Create/Delete objects");
+                }
+
+                if (evt.button == 0)
+                {
+                    Place();
+                }
+                else if (evt.button == 1)
+                {
+                    DestroyGameObjects();
+                }
+
+                evt.Use();
+            }
+            else if (evt.type == EventType.MouseDrag)
+            {
+                if (evt.button == 0)
+                {
+                    if (clickHit != null && currentHit != null && Vector3.Distance(clickHit.point, currentHit.point) > SceneData.BrushSize)
+                    {
+                        Place();
+                    }
+                }
+                else if (evt.button == 1)
+                {
+                    DestroyGameObjects();
+                }
+
+                evt.Use();
+            }
+            else if (evt.type == EventType.MouseUp)
+            {
+                if (SceneData.paintMode == PaintMode.Multi)
+                {
+                    Undo.CollapseUndoOperations(Undo.GetCurrentGroup());
+                }
+            }
+            else if (evt.isScrollWheel)
+            {
+                if (SceneData.paintMode == PaintMode.Multi)
+                {
+                    SceneData.BrushSize += evt.delta.y * 0.1f;
+                    Repaint();
+                    evt.Use();
+                }
+            }
+            else if (evt.type == EventType.Layout)
+            {
+                HandleUtility.AddDefaultControl(controlID);
+            }
+
+            void Place()
             {
                 clickHit = currentHit;
                 if (clickHit != null)
@@ -240,13 +304,7 @@ namespace RedeevEditor.Utilities
                 }
 
                 if (SceneData.randomizeSelection) SelectRandomPrefab();
-                CreatePreview(clickHit);
-
-                evt.Use();
-            }
-            else if (evt.type == EventType.Layout)
-            {
-                HandleUtility.AddDefaultControl(controlID);
+                if (showPreview) CreatePreview(clickHit);
             }
         }
 
@@ -272,6 +330,7 @@ namespace RedeevEditor.Utilities
 
             GUI.backgroundColor = oldColor;
 
+            ControlsGUI();
             MeshPreviewGUI();
 
             EditorGUI.BeginChangeCheck();
@@ -287,6 +346,24 @@ namespace RedeevEditor.Utilities
 
             if (EditorGUI.EndChangeCheck()) EditorUtility.SetDirty(SceneData);
             EditorGUILayout.EndScrollView();
+        }
+
+        private void ControlsGUI()
+        {
+            EditorGUILayout.BeginVertical("HelpBox");
+            if (controlsFoldout = EditorGUILayout.Foldout(controlsFoldout, "Controls"))
+            {
+                EditorGUILayout.BeginVertical("Box");
+                GUILayout.Label("Left Click - Place Object");
+                GUILayout.Label("Right Click - Delete Object");
+                GUILayout.Label("Scroll Wheel - Change Brush Size");
+                GUILayout.Label("Alt - Ignore tool controls");            
+                GUILayout.Label("Escape - Stop Placing");
+                GUILayout.Label("Space - Increase Rotation");
+                GUILayout.Label("Up/Down Arrow - Change Active Selection");          
+                EditorGUILayout.EndVertical();
+            }
+            EditorGUILayout.EndVertical();
         }
 
         private void PlacingOptionsGUI()
@@ -311,8 +388,10 @@ namespace RedeevEditor.Utilities
                 if (SceneData.paintMode == PaintMode.Multi)
                 {
                     EditorGUILayout.BeginVertical("Box");
-                    SceneData.brushSize = EditorGUILayout.Slider("Brush Size", SceneData.brushSize, 0.25f, 5f);
-                    SceneData.density = EditorGUILayout.FloatField("Density", SceneData.density);
+                    SceneData.brushSize = EditorGUILayout.Slider("Brush Size", SceneData.brushSize, MIN_BRUSH_SIZE, MAX_BRUSH_SIZE);
+
+                    SceneData.density = EditorGUILayout.Slider("Density", SceneData.density, 0.01f, 3f);
+
                     SceneData.minDistance = EditorGUILayout.FloatField("Min Distance", SceneData.minDistance);
                     SceneData.useColliders = EditorGUILayout.Toggle("Use Colliders", SceneData.useColliders);
                     LayerMask tempMask2 = EditorGUILayout.MaskField("Collider Mask", InternalEditorUtility.LayerMaskToConcatenatedLayersMask(SceneData.collidersMask), InternalEditorUtility.layers);
@@ -454,14 +533,14 @@ namespace RedeevEditor.Utilities
                 EditorGUILayout.BeginVertical("Box");
                 if (!SceneData.alignWithNormals) SceneData.space = (Space)EditorGUILayout.EnumPopup("Space", SceneData.space);
                 SceneData.currentAxis = (Axis)EditorGUILayout.EnumPopup("Axis", SceneData.currentAxis);
-                SceneData.rotationDelta = EditorGUILayout.FloatField("Rotation Delta", SceneData.rotationDelta);
                 SceneData.randomizeRotation = EditorGUILayout.Toggle("Randomize Rotation", SceneData.randomizeRotation);
                 if (SceneData.randomizeRotation)
                 {
-                    EditorGUILayout.MinMaxSlider($"Range [{SceneData.minAngle:N0}-{SceneData.maxAngle:N0}]", ref SceneData.minAngle, ref SceneData.maxAngle, 0f, 360f);
+                    EditorGUILayout.MinMaxSlider($"Range [{SceneData.minAngle:N0}-{SceneData.maxAngle:N0}]", ref SceneData.minAngle, ref SceneData.maxAngle, -360f, 360f);
                 }
                 else
                 {
+                    SceneData.rotationDelta = EditorGUILayout.FloatField("Rotation Delta", SceneData.rotationDelta);
                     SceneData.rotation = EditorGUILayout.Vector3Field("Rotation", SceneData.rotation);
                 }
                 EditorGUILayout.EndVertical();
@@ -726,10 +805,7 @@ namespace RedeevEditor.Utilities
 
         private void PlaceGameObjects()
         {
-            Undo.IncrementCurrentGroup();
-            Undo.SetCurrentGroupName("Instantiated objects");
-            var undoGroupIndex = Undo.GetCurrentGroup();
-
+            float minDistanceSquared = SceneData.minDistance * SceneData.minDistance;
             List<Vector3> points = new();
             int count = CalculateNumber();
             for (int i = 0; i < count; i++)
@@ -738,9 +814,9 @@ namespace RedeevEditor.Utilities
                 {
                     HitInfo hit = GetHitInformations(goodPosition);
 
-                    if (SceneData.useColliders)
+                    if (SceneData.useColliders && SceneData.minDistance > 0f && hit != null)
                     {
-                        if (Physics.OverlapSphereNonAlloc(hit.point, SceneData.minDistance, colliders, SceneData.collidersMask) > 0) continue;
+                        if (Physics.OverlapSphereNonAlloc(hit.point, SceneData.minDistance, SceneData.colliders, SceneData.collidersMask) > 0) continue;
                     }
 
                     GameObject instance = InstantiateObject(selectedPrefab, hit);
@@ -757,28 +833,40 @@ namespace RedeevEditor.Utilities
                 }
             }
 
-            Undo.CollapseUndoOperations(undoGroupIndex);
-
             bool TryGetGoodPosition(out Vector3 point)
             {
-                Vector2 pos = Random.insideUnitCircle * SceneData.brushSize;
-                point = clickHit.point + new Vector3(pos.x, 0f, pos.y);
+                point = Random.insideUnitCircle * SceneData.BrushSize;
+                point = clickHit.point + new Vector3(point.x, 0f, point.y);
 
                 if (!SceneData.useColliders)
                 {
-                    for (int i = 0; i < points.Count; i++)
+                    foreach (Vector3 storedPoint in points)
                     {
-                        if (Vector3.Distance(points[i], point) < SceneData.minDistance) return false;
+                        if ((storedPoint - point).sqrMagnitude < minDistanceSquared) return false;
                     }
                     points.Add(point);
                 }
-              
+
                 return true;
             }
 
             int CalculateNumber()
             {
-                return Mathf.RoundToInt(SceneData.brushSize * SceneData.brushSize * SceneData.density * 2 * Mathf.PI);
+                float radius = SceneData.minDistance > 0f ? minDistanceSquared : 0.01f;
+                return Mathf.RoundToInt((SceneData.BrushSize * SceneData.BrushSize) / radius * SceneData.density);
+            }
+        }
+
+        private void DestroyGameObjects()
+        {
+            if (currentHit == null) return;
+
+            var colliders = Physics.OverlapSphere(currentHit.point, SceneData.BrushSize, SceneData.collidersMask);
+            if (colliders.Length == 0) return;
+
+            foreach (var collider in colliders)
+            {
+                Undo.DestroyObjectImmediate(collider.gameObject);
             }
         }
 
@@ -930,7 +1018,7 @@ namespace RedeevEditor.Utilities
 
         #endregion
 
-        #region Grass
+        #region Colliders
 
         private void ActivateCollider(bool value)
         {
