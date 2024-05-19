@@ -259,7 +259,7 @@ namespace RedeevEditor.Utilities
             }
             else if (evt.type == EventType.MouseDrag)
             {
-                if (evt.button == 0)
+                if (evt.button == 0 && !evt.alt)
                 {
                     if (clickHit != null && currentHit != null && Vector3.Distance(clickHit.point, currentHit.point) > SceneData.BrushSize)
                     {
