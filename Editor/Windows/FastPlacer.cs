@@ -1,8 +1,10 @@
 #if UNITY_EDITOR
 using System.Collections.Generic;
 using UnityEditor;
+using UnityEditor.SceneManagement;
 using UnityEditorInternal;
 using UnityEngine;
+using UnityEngine.SceneManagement;
 using static RedeevEditor.Utilities.FastPlacerSceneData;
 
 namespace RedeevEditor.Utilities
@@ -84,26 +86,40 @@ namespace RedeevEditor.Utilities
         {
             SceneView.duringSceneGui += OnSceneGUI;
             EditorApplication.playModeStateChanged += OnPlayModeStateChanged;
+            EditorSceneManager.sceneClosing += OnSceneClosing;
+        }
+
+        private void OnSceneClosing(Scene scene, bool removingScene)
+        {
+            SetActive(false);
         }
 
         private void OnDisable()
         {
             SetActive(false);
+
             SceneView.duringSceneGui -= OnSceneGUI;
             EditorApplication.playModeStateChanged -= OnPlayModeStateChanged;
+            EditorSceneManager.sceneClosing -= OnSceneClosing;
         }
 
         private void OnPlayModeStateChanged(PlayModeStateChange state)
         {
-            if (state == PlayModeStateChange.EnteredPlayMode) isActive = false;
+            if (state == PlayModeStateChange.ExitingEditMode)
+            {
+                SetActive(false);
+            }
         }
 
         private void SetActive(bool value)
         {
+            if (isActive == value) return;
             isActive = value;
 
             Selection.objects = new Object[0];
             Tools.hidden = value;
+
+            ActivateCollider(value);
 
             if (value)
             {
@@ -195,10 +211,10 @@ namespace RedeevEditor.Utilities
 
         private void OnSceneGUI(SceneView sceneView)
         {
+            if (!isActive) return;
+
             Event evt = Event.current;
             controlID = GUIUtility.GetControlID(HASH, FocusType.Passive);
-
-            if (!isActive) return;
 
             currentHit = GetHitInformations(evt);
 
@@ -316,14 +332,14 @@ namespace RedeevEditor.Utilities
 
         private void OnGUI()
         {
-            scrollPos = EditorGUILayout.BeginScrollView(scrollPos);
-            EditorGUILayout.Space();
-
             if (EditorApplication.isPlaying)
             {
                 EditorGUILayout.LabelField("Not available in playMode");
                 return;
             }
+
+            scrollPos = EditorGUILayout.BeginScrollView(scrollPos);
+            EditorGUILayout.Space();
 
             Color oldColor = GUI.backgroundColor;
             GUI.backgroundColor = isActive ? Color.red : Color.green;
@@ -331,7 +347,6 @@ namespace RedeevEditor.Utilities
             if (GUILayout.Button(new GUIContent(isActive ? " Stop" : " Paint", EditorGUIUtility.IconContent("d_Grid.PaintTool").image), GUILayout.Height(25f)))
             {
                 SetActive(!isActive);
-                ActivateCollider(isActive);
             }
 
             GUI.backgroundColor = oldColor;
@@ -401,6 +416,7 @@ namespace RedeevEditor.Utilities
                     SceneData.useColliders = EditorGUILayout.Toggle("Use Colliders", SceneData.useColliders);
                     LayerMask tempMask2 = EditorGUILayout.MaskField("Collider Mask", InternalEditorUtility.LayerMaskToConcatenatedLayersMask(SceneData.collidersMask), InternalEditorUtility.layers);
                     SceneData.collidersMask = InternalEditorUtility.ConcatenatedLayersMaskToLayerMask(tempMask2);
+
                     EditorGUILayout.EndVertical();
                 }
                 EditorGUI.indentLevel--;
@@ -1031,7 +1047,7 @@ namespace RedeevEditor.Utilities
         private void ActivateCollider(bool value)
         {
             foreach (var item in FindObjectsOfType<FastPlacerCollider>())
-            {
+            {               
                 item.Activate(value, SceneData.minDistance, SceneData.collidersMask);
             }
         }

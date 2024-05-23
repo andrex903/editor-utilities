@@ -12,22 +12,21 @@ namespace RedeevEditor.Utilities
         {
             if (value)
             {
-                if (sphereCollider == null)
+                if (!sphereCollider && !TryGetComponent(out sphereCollider))
                 {
-                    if (GetComponent<SphereCollider>() != null)
-                    {
-                        sphereCollider = GetComponent<SphereCollider>();
-                    }
-                    else sphereCollider = gameObject.AddComponent<SphereCollider>();
+                    sphereCollider = gameObject.AddComponent<SphereCollider>();
                 }
+
                 sphereCollider.radius = radius;
                 sphereCollider.isTrigger = true;
+
                 originalLayer = gameObject.layer;
                 gameObject.layer = (int)Mathf.Log(layer.value, 2);
             }
             else
             {
-                if (sphereCollider != null) DestroyImmediate(sphereCollider);              
+                if (sphereCollider) DestroyImmediate(sphereCollider);
+
                 gameObject.layer = originalLayer;
             }
         }
