@@ -33,6 +33,7 @@ namespace RedeevEditor.Utilities
         private static void OnToolbarGUI(List<Action> handlers)
         {
             GUILayout.BeginHorizontal();
+          
             foreach (var handler in handlers)
             {
                 handler?.Invoke();

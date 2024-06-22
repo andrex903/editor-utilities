@@ -7,49 +7,76 @@ using UnityEngine.SceneManagement;
 
 namespace RedeevEditor.Utilities
 {
-    [InitializeOnLoad]
+    [InitializeOnLoad()]
     public static class ScenesToolbar
     {
-        private static int activeSceneIndex = 0;
-        private static int lastSceneIndex = -1;
-
         private readonly static List<string> scenes;
         private readonly static List<string> sceneNames;
 
+        private static int ActiveSceneIndex
+        {
+            get
+            {
+                return SessionState.GetInt("ActiveSceneIndex", sceneNames.IndexOf(EditorSceneManager.GetActiveScene().name));
+            }
+
+            set
+            {
+                SessionState.SetInt("ActiveSceneIndex", value);
+            }
+        }
+
+        private static int LastSceneIndex
+        {
+            get
+            {
+                return SessionState.GetInt("LastSceneIndex", sceneNames.IndexOf(EditorSceneManager.GetActiveScene().name));
+            }
+
+            set
+            {
+                SessionState.SetInt("LastSceneIndex", value);
+            }
+        }
+
         static ScenesToolbar()
         {
-            ToolbarExtension.LeftToolbarGUI.Add(OnToolbarGUI);
-
-            EditorSceneManager.activeSceneChangedInEditMode += OnSceneChanged;
+            if (EditorApplication.isPlaying) return;
 
             scenes = new();
             sceneNames = new();
             FindAllScenes();
+
+            ToolbarExtension.LeftToolbarGUI.Add(OnToolbarGUI);
+            EditorSceneManager.sceneOpened += OnSceneOpened;
         }
 
-        private static void OnSceneChanged(Scene _, Scene scene)
+        private static void OnSceneOpened(Scene scene, OpenSceneMode mode)
         {
+            if (mode != OpenSceneMode.Single) return;
+
             int index = scenes.IndexOf(scene.path);
             if (index >= 0 && index < scenes.Count)
             {
-                activeSceneIndex = index;
+                ActiveSceneIndex = index;
             }
         }
 
         private static void OnToolbarGUI()
         {
             if (EditorApplication.isPlaying) GUI.enabled = false;
+
             GUILayout.Space(5);
 
-            activeSceneIndex = EditorGUILayout.Popup(activeSceneIndex, sceneNames.ToArray(), EditorStyles.toolbarPopup, GUILayout.Width(150f));
-            if (activeSceneIndex != lastSceneIndex)
+            ActiveSceneIndex = EditorGUILayout.Popup(ActiveSceneIndex, sceneNames.ToArray(), EditorStyles.toolbarPopup, GUILayout.Width(150f));
+            if (ActiveSceneIndex != LastSceneIndex)
             {
                 if (EditorSceneManager.SaveCurrentModifiedScenesIfUserWantsTo())
                 {
-                    lastSceneIndex = activeSceneIndex;
-                    EditorSceneManager.OpenScene(scenes[activeSceneIndex]);
+                    LastSceneIndex = ActiveSceneIndex;
+                    EditorSceneManager.OpenScene(scenes[ActiveSceneIndex]);
                 }
-                else activeSceneIndex = lastSceneIndex;
+                else ActiveSceneIndex = LastSceneIndex;
             }
 
             GUILayout.Space(2);
@@ -71,8 +98,9 @@ namespace RedeevEditor.Utilities
             foreach (var guid in guids)
             {
                 string path = AssetDatabase.GUIDToAssetPath(guid);
+                string sceneName = System.IO.Path.GetFileNameWithoutExtension(path);
                 scenes.Add(path);
-                sceneNames.Add(System.IO.Path.GetFileNameWithoutExtension(path));
+                sceneNames.Add(sceneName);
             }
         }
     }
