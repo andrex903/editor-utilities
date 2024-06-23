@@ -69,7 +69,7 @@ namespace RedeevEditor.Utilities
             GUILayout.Space(5);
 
             ActiveSceneIndex = EditorGUILayout.Popup(ActiveSceneIndex, sceneNames.ToArray(), EditorStyles.toolbarPopup, GUILayout.Width(150f));
-            if (ActiveSceneIndex != LastSceneIndex)
+            if (!EditorApplication.isPlaying && ActiveSceneIndex != LastSceneIndex)
             {
                 if (EditorSceneManager.SaveCurrentModifiedScenesIfUserWantsTo())
                 {
