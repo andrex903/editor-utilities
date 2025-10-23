@@ -62,7 +62,7 @@ namespace RedeevEditor.Utilities
         private void SelectObjectsWithNegativeScale()
         {
             List<GameObject> list = new();
-            foreach (var obj in FindObjectsOfType<GameObject>())
+            foreach (var obj in FindObjectsByType<GameObject>(FindObjectsSortMode.None))
             {
                 if (obj.transform.localScale.x < 0f || obj.transform.localScale.y < 0f || obj.transform.localScale.z < 0f)
                 {
@@ -76,7 +76,7 @@ namespace RedeevEditor.Utilities
         private void SelectObjectsWithLayer()
         {
             List<GameObject> list = new();
-            foreach (var obj in FindObjectsOfType<GameObject>())
+            foreach (var obj in FindObjectsByType<GameObject>(FindObjectsSortMode.None))
             {
                 if (obj.layer == layerMask.value) list.Add(obj);
             }

@@ -56,7 +56,7 @@ namespace RedeevEditor.Utilities
             {
                 if (sceneData == null)
                 {
-                    sceneData = FindObjectOfType<FastPlacerSceneData>();
+                    sceneData = FindFirstObjectByType<FastPlacerSceneData>();
                     if (sceneData == null)
                     {
                         sceneData = new GameObject($"({nameof(FastPlacerSceneData)})").AddComponent<FastPlacerSceneData>();
@@ -71,7 +71,7 @@ namespace RedeevEditor.Utilities
 
         private readonly int HASH = "FastPlacer".GetHashCode();
         private const string CREATE_ICON = "d_Toolbar Plus";
-        private const string CREATE_GROUP_ICON = "Add-Available";
+        private const string CREATE_GROUP_ICON = "d_Toolbar Plus";
         private const string GROUP_ICON = "d_FolderEmpty Icon";
         private const string ACTIVE_GROUP_ICON = "d_Folder Icon";
         private const string DELETE_ICON = "TreeEditor.Trash";
@@ -363,6 +363,18 @@ namespace RedeevEditor.Utilities
             if (GUILayout.Button("Clear Scene Settings"))
             {
                 if (EditorUtility.DisplayDialog("Confirmation required", "Are you sure to delete the current scene settings?", "Confirm", "Cancel")) DestroyImmediate(SceneData.gameObject);
+            }
+            if (GUILayout.Button("Clear Fast Placer Colliders"))
+            {
+                if (EditorUtility.DisplayDialog("Confirmation required", "Are you sure to delete the current colliders?", "Confirm", "Cancel"))
+                {
+                    foreach (var placerCollider in FindObjectsByType<FastPlacerCollider>(FindObjectsInactive.Include, FindObjectsSortMode.None))
+                    {
+                        var gameObject = placerCollider.gameObject;
+                        DestroyImmediate(placerCollider);
+                        EditorUtility.SetDirty(gameObject);
+                    }
+                }
             }
 
             if (EditorGUI.EndChangeCheck()) EditorUtility.SetDirty(SceneData);
@@ -925,8 +937,14 @@ namespace RedeevEditor.Utilities
             if (!original) return null;
 
             GameObject instance;
+
             if (PrefabUtility.GetPrefabAssetType(original) == PrefabAssetType.NotAPrefab) instance = Instantiate(original);
-            else instance = PrefabUtility.InstantiatePrefab(original) as GameObject;
+            else
+            {
+                var prefabAsset = PrefabUtility.GetCorrespondingObjectFromSource(original);
+                if (prefabAsset != null) instance = PrefabUtility.InstantiatePrefab(prefabAsset) as GameObject;
+                else instance = Instantiate(original);
+            }
 
             return instance;
         }
@@ -1046,8 +1064,8 @@ namespace RedeevEditor.Utilities
 
         private void ActivateCollider(bool value)
         {
-            foreach (var item in FindObjectsOfType<FastPlacerCollider>())
-            {               
+            foreach (var item in FindObjectsByType<FastPlacerCollider>(FindObjectsSortMode.None))
+            {
                 item.Activate(value, SceneData.minDistance, SceneData.collidersMask);
             }
         }
