@@ -936,18 +936,15 @@ namespace RedeevEditor.Utilities
         {
             if (!original) return null;
 
-            GameObject instance;
+            var prefabType = PrefabUtility.GetPrefabAssetType(original);
+            if (prefabType == PrefabAssetType.NotAPrefab) return Instantiate(original);
+            var instanceStatus = PrefabUtility.GetPrefabInstanceStatus(original);
+            if (instanceStatus == PrefabInstanceStatus.NotAPrefab) return PrefabUtility.InstantiatePrefab(original) as GameObject;
+            var prefabSource = PrefabUtility.GetCorrespondingObjectFromOriginalSource(original);
+            if (prefabSource != null) return PrefabUtility.InstantiatePrefab(prefabSource) as GameObject;
 
-            if (PrefabUtility.GetPrefabAssetType(original) == PrefabAssetType.NotAPrefab) instance = Instantiate(original);
-            else
-            {
-                var prefabAsset = PrefabUtility.GetCorrespondingObjectFromSource(original);
-                if (prefabAsset != null) instance = PrefabUtility.InstantiatePrefab(prefabAsset) as GameObject;
-                else instance = Instantiate(original);
-            }
-
-            return instance;
-        }
+            return Instantiate(original);
+        }      
 
         private GameObject InstantiateObject(GameObject original, HitInfo hit)
         {
